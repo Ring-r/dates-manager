@@ -200,6 +200,7 @@ if __name__ == "__main__":
 
     if len(sys.argv) == 1:
         _main(data_path, ics_path)
+        exit()
 
     if sys.argv[1] == "get-template-s":
         _get_event_template_s(data_path)

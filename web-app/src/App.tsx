@@ -110,7 +110,7 @@ function App() {
     setEditingEventbase(
       create_eventbase(
         eventbaseList.length > 0 ? Math.max(...eventbaseList.map(item => item.uid)) + 1 : 0,
-        undefined, date.getMonth(), date.getDate(),
+        undefined, date.getMonth() + 1, date.getDate(),
         ""
       )
     );

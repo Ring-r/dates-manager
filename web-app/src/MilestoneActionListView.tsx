@@ -81,7 +81,7 @@ function MilestoneActionEditView({ milestone_action, onApply, onCancel, onDelete
     <VStack>
       <DatePicker cleanable={false} format="yyyy.MM.dd HH:mm" onChange={setDate} value={date} />
       <SelectPicker cleanable={false} data={title_choise_list} onChange={setTitle} searchable={false} value={title} />
-      {title === "remind" && <DatePicker format="yyyy.MM.dd HH:mm" onChange={setDateNext} value={date} />}
+      {title === "remind" && <DatePicker format="yyyy.MM.dd HH:mm" onChange={setDateNext} value={dateNext} />}
       <HStack>
         <Button onClick={handleApplyClick}>apply</Button>
         <Button onClick={onCancel}>cancel</Button>

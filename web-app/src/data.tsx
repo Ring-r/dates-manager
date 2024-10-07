@@ -1,25 +1,35 @@
+export const dbName = "dates-manager";
+export const dbStoreName = "data";
+export const dbVersion = 1;
+
 export const data_filename = "dates.json";
 
 
 export interface Eventbase {
   uid: number; // auto
 
-  date: Date;
+  // date: Date;
+  date_year?: number;
+  date_month: number;
+  date_day: number;
   title: string;
   actor?: string;
 }
 
-export function create_eventbase(uid: number, date: Date, title: string, actor?: string) {
+export function create_eventbase(uid: number, date_year: number | undefined, date_month: number, date_day: number, title: string, actor?: string) {
   return {
     uid: uid,
-    date: date,
+    // date: date,
+    date_year: date_year,
+    date_month: date_month,
+    date_day: date_day,
     title: title,
     actor: actor,
   }
 }
 
 export function get_milestone_date(eventbase: Eventbase, date: Date) {
-  return new Date(date.getFullYear(), eventbase.date.getMonth(), eventbase.date.getDate());
+  return new Date(date.getFullYear(), eventbase.date_month - 1, eventbase.date_day);
 }
 
 export interface Milestone {
@@ -89,6 +99,10 @@ export function in_process(milestone: Milestone) {
   return last_action && last_action.title === "remind";
 }
 
+export interface Data {
+  dbVersion: number;
+  eventbase_list: Eventbase[];
+}
 
 interface RangeInterval {
   to_start: number;
@@ -127,5 +141,27 @@ export const settings = {
       to_start: 7 * 24 * 60 * 60 * 1000, // 7 days before
       to_stop: 8 * 24 * 60 * 60 * 1000, // 7 days after
     },
+  }
+}
+
+export function put_all(db: IDBDatabase, data: Data) {
+  const transaction = db.transaction([dbStoreName], "readwrite");
+  const objectStore = transaction.objectStore(dbStoreName);
+  try {
+    const request_clear = objectStore.clear();
+    request_clear.onsuccess = function () {
+      data.eventbase_list.forEach(eventbase => {
+        const request_put = objectStore.add(eventbase);
+        request_put.onerror = function () {
+          console.error("Unable to add data:", this.error);
+        };
+      });
+    };
+    request_clear.onerror = function () {
+      console.error("Unable to clear store:", this.error);
+    };
+  }
+  catch {
+    transaction.abort()
   }
 }

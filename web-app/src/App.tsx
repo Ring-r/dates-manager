@@ -1,23 +1,70 @@
-import React, { ChangeEvent, useState } from 'react';
+import React, { ChangeEvent, useEffect, useState } from 'react';
 import { Button, DatePicker, FlexboxGrid, HStack, Tabs } from 'rsuite';
 import 'rsuite-color-picker/lib/styles.less';
 import 'rsuite/dist/rsuite.min.css';
 import './App.css';
 import CalendarView from './Calendar';
-import { create_eventbase, data_filename, Eventbase, get_uid, Milestone } from './data';
-import { EventbaseEditView } from './EventbaseListView';
+import { create_eventbase, Data, data_filename, dbName, dbStoreName, dbVersion, Eventbase, get_uid, Milestone, put_all } from './data';
+import EventbaseListView, { EventbaseEditView } from './EventbaseListView';
 import { MilestoneEditView } from './MilestoneListView';
 import MilestoneWithReminderNotificationView from './MilestoneWithReminderListView';
 import TimelineView from './Timeline';
 
 
 function App() {
+  const [db, setDB] = useState<IDBDatabase>();
+
   const [date, setDate] = useState<Date>(new Date());
   const [eventbaseList, setEventbaseList] = useState<Eventbase[]>([]);
   const [milestoneList, setMilestoneList] = useState<Milestone[]>([]);
 
+  const [activeKey, setActiveKey] = useState<string | number | undefined>("1");
+
+  // indexeddb
+  useEffect(() => {
+    function initDB() {
+      const request = indexedDB.open(dbName, dbVersion);
+
+      request.onerror = () => {
+        console.error("Database error:", request.error);
+      };
+
+      request.onsuccess = () => {
+        const db_ = request.result;
+        setDB(db_);
+      };
+
+      request.onupgradeneeded = function () {
+        const db_ = request.result;
+        if (!db_.objectStoreNames.contains(dbStoreName)) {
+          db_.createObjectStore(dbStoreName, { keyPath: "uid" });
+          console.log("Object store created");
+        }
+      }
+    }
+    initDB();
+  }, []);
+
+  useEffect(() => {
+    function initData() {
+      if (!db) return;
+
+      const request = db.transaction([dbStoreName], "readonly").objectStore(dbStoreName).getAll();
+      request.onsuccess = () => {
+        const data = request.result ?? [];
+        setEventbaseList(data);
+      };
+      request.onerror = () => {
+        console.error("Unable to retrieve data:", request.error);
+      };
+    }
+    initData();
+  }, [db]);
+
   // load/save
   const load = (event: ChangeEvent<HTMLInputElement>): void => {
+    if (!db) return;
+
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -25,8 +72,9 @@ function App() {
     reader.onload = (e: ProgressEvent<FileReader>) => {
       try {
         const result = e.target?.result as string;
-        const data = JSON.parse(result, (k, v) => k === "date" ? new Date(v) : v);
-        setEventbaseList(data);
+        const data = JSON.parse(result, (k, v) => k === "date" ? new Date(v) : v) as Data;
+        put_all(db, data);
+        setEventbaseList(data.eventbase_list);
       } catch (error) {
         console.error("Error parsing JSON:", error);
       }
@@ -35,7 +83,11 @@ function App() {
   };
 
   const save = () => {
-    const json = JSON.stringify(eventbaseList);
+    const data: Data = {
+      dbVersion: dbVersion,
+      eventbase_list: eventbaseList,
+    }
+    const json = JSON.stringify(data);
     const blob = new Blob([json], { type: "text/json" });
 
     const a = document.createElement('a');
@@ -53,22 +105,29 @@ function App() {
   const [editingEventbase, setEditingEventbase] = useState<Eventbase | null>(null);
 
   const handleAddEventbase = () => {
-    setEditingEventbase(create_eventbase(eventbaseList.length > 0 ? Math.max(...eventbaseList.map(item => item.uid)) + 1 : 0, new Date(), ""));
+    const date = new Date();
+    setEditingEventbase(
+      create_eventbase(
+        eventbaseList.length > 0 ? Math.max(...eventbaseList.map(item => item.uid)) + 1 : 0,
+        undefined, date.getMonth(), date.getDate(),
+        ""
+      )
+    );
   }
 
   const handleEditEventbase = (eventbase: Eventbase) => {
     setEditingEventbase(eventbase);
   }
 
-  const handleApplyEventbase = async () => {
+  const handleApplyEventbase = (eventbase: Eventbase) => {
     if (editingEventbase === null) return;
 
     setEventbaseList(
       [
         ...eventbaseList
           .filter(eventbase => eventbase.uid !== editingEventbase.uid),
-        editingEventbase,
-      ].sort((a, b) => a.date.getDay() - b.date.getDay()));
+        eventbase,
+      ].sort((a, b) => a.date_month !== b.date_month ? a.date_month - b.date_month : a.date_day - b.date_day));
     setEditingEventbase(null);
   }
 
@@ -76,7 +135,7 @@ function App() {
     setEditingEventbase(null);
   }
 
-  const handleDeleteEventbase = async () => {
+  const handleDeleteEventbase = () => {
     if (eventbaseList === undefined) return;
     if (editingEventbase === null) return;
 
@@ -101,6 +160,10 @@ function App() {
         eventbase: eventbaseList[0],
       }
     );
+  }
+
+  const handleEditMilestone = (milestone: Milestone) => {
+    setEditingMilestone(milestone);
   }
 
   const handleApplyMilestone = (milestone: Milestone) => {
@@ -151,15 +214,19 @@ function App() {
                 <Button onClick={handleAddEventbase}>add eventbase</Button>
                 <Button onClick={handleAddMilestone}>add milestone</Button>
               </HStack>
-              <DatePicker cleanable={false} format='yyyy.MM.dd' onChange={value => value && setDate(value)} value={date} />
-              <Tabs defaultActiveKey="1">
+              <Tabs activeKey={activeKey} onSelect={setActiveKey}>
                 <Tabs.Tab eventKey="1" title="calendar">
-                  <CalendarView date={date} eventbase_list={eventbaseList} milestone_list={milestoneList} on_edit={setEditingMilestone} set_date={setDate} />
+                  <CalendarView date={date} eventbase_list={eventbaseList} milestone_list={milestoneList} on_edit={handleEditMilestone} set_date={setDate} />
                 </Tabs.Tab>
                 <Tabs.Tab eventKey="2" title="timeline">
-                  <TimelineView date={date} eventbase_list={eventbaseList} milestone_list={milestoneList} on_edit={setEditingMilestone} />
+                  <DatePicker cleanable={false} format='yyyy.MM.dd' onChange={value => value && setDate(value)} value={date} />
+                  <TimelineView date={date} eventbase_list={eventbaseList} milestone_list={milestoneList} on_edit={handleEditMilestone} />
                 </Tabs.Tab>
-                <Tabs.Tab eventKey="3" title="reminders and notifications">
+                <Tabs.Tab eventKey="3" title="events">
+                  <Button onClick={handleAddEventbase}>add event</Button>
+                  <EventbaseListView eventbaseList={eventbaseList} on_edit={handleEditEventbase} />
+                </Tabs.Tab>
+                <Tabs.Tab eventKey="4" title="reminders and notifications">
                   <MilestoneWithReminderNotificationView date={new Date()} eventbase_list={eventbaseList} milestone_list={milestoneList} set_milestone_list={setMilestoneList} />
                 </Tabs.Tab>
               </Tabs>

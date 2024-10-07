@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Button, DateInput, DatePicker, HStack, Input, VStack } from 'rsuite';
-import { Eventbase } from './data';
+import { useEffect, useState } from 'react';
+import { Button, HStack, Input, InputNumber, Message, SelectPicker, useToaster, VStack } from 'rsuite';
+import { create_eventbase, Eventbase } from './data';
 
 interface EventbaseParam {
   eventbase: Eventbase;
@@ -10,7 +10,9 @@ interface EventbaseParam {
 export function EventbaseView({ eventbase, on_edit }: EventbaseParam) {
   return (
     <HStack>
-      <DateInput plaintext value={eventbase.date} />
+      {/* <DateInput plaintext value={eventbase.date} /> */}
+      {/* <Input plaintext value={eventbase.date_year || "????"} /> */}
+      <Input plaintext value={("0" + eventbase.date_month).slice(-2) + "." + ("0" + eventbase.date_day).slice(-2)} />
       <Input plaintext value={eventbase.title} />
       {eventbase.actor && <Input plaintext value={eventbase.actor} />}
       {on_edit && <Button onClick={on_edit}>edit</Button>}
@@ -20,42 +22,95 @@ export function EventbaseView({ eventbase, on_edit }: EventbaseParam) {
 
 interface EventbaseEditParam {
   eventbase: Eventbase;
-  on_apply?: () => void;
-  on_cancel?: () => void;
-  on_delete?: () => void;
+  on_apply: (eventbase: Eventbase) => void;
+  on_cancel: () => void;
+  on_delete: () => void;
 }
 
 export function EventbaseEditView({ eventbase, on_apply, on_cancel, on_delete }: EventbaseEditParam) {
-  const [date, setDate] = useState<Date | null>(eventbase.date);
+  const [dateYear, setDateYear] = useState<string | number | null>(eventbase.date_year || null);
+  const [dateMonth, setDateMonth] = useState<number | null>(eventbase.date_month);
+  const [dateDay, setDateDay] = useState<number | null>(eventbase.date_day);
   const [title, setTitle] = useState<string>(eventbase.title);
   const [actor, setActor] = useState<string | undefined>(eventbase.actor);
+  const toaster = useToaster();
 
-  const handleChangeDate = (value: Date | null) => {
-    setDate(value);
+  const data_month = Array.from({ length: 12 }, (x, i) => i + 1).map(item => ({ label: item, value: item }));
+  const data_day = Array.from({ length: 31 }, (x, i) => i + 1).map(item => ({ label: item, value: item }));
 
-    if (value === null) return
-    eventbase.date = value;
+  useEffect(() => {
+    // todo: change style of date components if they are not correct date
+  }, [dateYear, dateMonth, dateDay])
+
+  const handleTodayClick = () => {
+    const today = new Date();
+    setDateMonth(today.getMonth());
+    setDateDay(today.getDate());
   }
 
-  const handleChangeTitle = (value: string) => {
-    setTitle(value);
-    eventbase.title = value;
-  }
+  const handleApplyClick = () => {
+    const date_year = dateYear !== null ? Number(dateYear) : undefined;
+    if (date_year !== undefined && !Number.isInteger(date_year)) {
+      toaster.push((
+        <Message showIcon type="error" closable>`year` must be integer number or empty.</Message>
+      ), { duration: 5000 })
+      return;
+    }
+    if (dateMonth === null || !Number.isInteger(dateMonth)) {
+      toaster.push((
+        <Message showIcon type="error" closable>`month` must be integer number.</Message>
+      ), { duration: 5000 })
+      return;
+    }
+    if (dateDay === null || !Number.isInteger(dateDay)) {
+      toaster.push((
+        <Message showIcon type="error" closable>`month` must be integer number.</Message>
+      ), { duration: 5000 })
+      return;
+    }
+    try {
+      new Date(date_year || 2000, dateMonth - 1, dateDay); // 2000 is a leap year
+    }
+    catch {
+      toaster.push((
+        <Message showIcon type="error" closable>the date is incorrect.</Message>
+      ), { duration: 5000 })
+      return;
+    }
 
-  const handleChangeActor = (value: string) => {
-    setActor(value);
-
-    eventbase.actor = value !== "" ? value : undefined;
+    on_apply(
+      create_eventbase(
+        eventbase.uid,
+        date_year,
+        dateMonth,
+        dateDay,
+        title,
+        actor !== "" ? actor : undefined,
+      )
+    );
   }
 
   return (
     <VStack key={eventbase.uid}>
-      <DatePicker cleanable={false} format="yyyy.MM.dd" value={date} onChange={handleChangeDate} />
-      <Input placeholder="title" value={title} onChange={handleChangeTitle} />
-      <Input placeholder="actor" value={actor} onChange={handleChangeActor} />
-      <Button onClick={on_apply}>apply</Button>
-      <Button onClick={on_cancel}>cancel</Button>
-      <Button onClick={on_delete}>delete</Button>
+      {/* <DatePicker cleanable={false} format="yyyy.MM.dd" value={date} onChange={handleChangeDate} /> */}
+      <HStack>
+        <InputNumber placeholder="year" value={dateYear} onChange={setDateYear} />
+        <Button onClick={() => setDateYear(new Date().getFullYear())}>current</Button>
+        <Button onClick={() => setDateYear(null)}>clear</Button>
+      </HStack>
+      <HStack>
+        {/* it is better to use InputPicker but it is broken. and it is better to use something like DatePicker with Time format */}
+        <SelectPicker cleanable={false} data={data_month} placeholder="month" value={dateMonth} onChange={setDateMonth} />
+        <SelectPicker cleanable={false} data={data_day} placeholder="day" value={dateDay} onChange={setDateDay} />
+        <Button onClick={handleTodayClick}>today</Button>
+      </HStack>
+      <Input placeholder="title" value={title} onChange={setTitle} />
+      <Input placeholder="actor" value={actor} onChange={setActor} />
+      <HStack>
+        <Button onClick={handleApplyClick}>apply</Button>
+        <Button onClick={on_cancel}>cancel</Button>
+        <Button onClick={on_delete}>delete</Button>
+      </HStack>
     </VStack>
   );
 }
@@ -69,7 +124,7 @@ function EventbaseListView({ eventbaseList, on_edit }: EventbaseListParam) {
   return (
     <VStack>
       {
-        eventbaseList.sort((a, b) => a.date.getTime() - b.date.getTime()).map(eventbase =>
+        eventbaseList.sort((a, b) => a.date_month !== b.date_month ? a.date_month - b.date_month : a.date_day - b.date_day).map(eventbase =>
           <EventbaseView key={eventbase.uid} eventbase={eventbase} on_edit={on_edit ? () => on_edit(eventbase) : undefined} />
         )
       }

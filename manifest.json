@@ -1,6 +1,6 @@
 {
-  "short_name": "dates manager",
-  "name": "Create React App Sample",
+  "short_name": "dates-manager",
+  "name": "Dates Manager",
   "icons": [
     {
       "src": "favicon.ico",

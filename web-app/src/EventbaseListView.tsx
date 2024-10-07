@@ -32,7 +32,7 @@ export function EventbaseEditView({ eventbase, on_apply, on_cancel, on_delete }:
   const [dateMonth, setDateMonth] = useState<number | null>(eventbase.date_month);
   const [dateDay, setDateDay] = useState<number | null>(eventbase.date_day);
   const [title, setTitle] = useState<string>(eventbase.title);
-  const [actor, setActor] = useState<string | undefined>(eventbase.actor);
+  const [actor, setActor] = useState<string>(eventbase.actor || "");
   const toaster = useToaster();
 
   const data_month = Array.from({ length: 12 }, (x, i) => i + 1).map(item => ({ label: item, value: item }));

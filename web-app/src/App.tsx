@@ -5,7 +5,7 @@ import 'rsuite/dist/rsuite.min.css';
 import { FileType } from 'rsuite/esm/Uploader';
 import './App.css';
 import CalendarView from './Calendar';
-import { create_eventbase, Data, data_filename, dbName, dbStoreName, dbVersion, Eventbase, get_uid, Milestone, put_all } from './data';
+import { change, create_eventbase, Data, data_filename, dbName, dbStoreName, dbVersion, Eventbase, get_uid, Milestone, put_all } from './data';
 import EventbaseListView, { EventbaseEditView } from './EventbaseListView';
 import { MilestoneEditView } from './MilestoneListView';
 import MilestoneListViewComplex from './MilestoneListViewComplex';
@@ -121,7 +121,10 @@ function App() {
   }
 
   const handleApplyEventbase = (eventbase: Eventbase) => {
+    if (!db) return;
     if (editingEventbase === null) return;
+
+    change(db, editingEventbase, eventbase);
 
     setEventbaseList(
       [
@@ -137,8 +140,10 @@ function App() {
   }
 
   const handleDeleteEventbase = () => {
-    if (eventbaseList === undefined) return;
+    if (!db) return;
     if (editingEventbase === null) return;
+
+    change(db, editingEventbase, null);
 
     setEventbaseList(
       eventbaseList

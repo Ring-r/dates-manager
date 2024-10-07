@@ -165,3 +165,9 @@ export function put_all(db: IDBDatabase, data: Data) {
     transaction.abort()
   }
 }
+
+export function change(db: IDBDatabase, old_eventbase: Eventbase, new_eventbase: Eventbase | null) {
+  const objectStore = db.transaction([dbStoreName], "readwrite").objectStore(dbStoreName);
+  objectStore.delete(old_eventbase.uid);
+  new_eventbase && objectStore.put(new_eventbase);
+}

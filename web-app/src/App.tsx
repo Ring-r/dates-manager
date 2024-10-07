@@ -1,14 +1,15 @@
-import React, { ChangeEvent, useEffect, useState } from 'react';
-import { Button, DatePicker, FlexboxGrid, HStack, Tabs } from 'rsuite';
+import React, { useEffect, useState } from 'react';
+import { Button, FlexboxGrid, Tabs, Uploader } from 'rsuite';
 import 'rsuite-color-picker/lib/styles.less';
 import 'rsuite/dist/rsuite.min.css';
+import { FileType } from 'rsuite/esm/Uploader';
 import './App.css';
 import CalendarView from './Calendar';
 import { create_eventbase, Data, data_filename, dbName, dbStoreName, dbVersion, Eventbase, get_uid, Milestone, put_all } from './data';
 import EventbaseListView, { EventbaseEditView } from './EventbaseListView';
 import { MilestoneEditView } from './MilestoneListView';
+import MilestoneListViewComplex from './MilestoneListViewComplex';
 import MilestoneWithReminderNotificationView from './MilestoneWithReminderListView';
-import TimelineView from './Timeline';
 
 
 function App() {
@@ -62,16 +63,16 @@ function App() {
   }, [db]);
 
   // load/save
-  const load = (event: ChangeEvent<HTMLInputElement>): void => {
+  const load = (fileList: FileType[]) => {
     if (!db) return;
 
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const blob = fileList[0].blobFile;
+    if (!blob) return;
 
     const reader = new FileReader();
-    reader.onload = (e: ProgressEvent<FileReader>) => {
+    reader.onload = (event: ProgressEvent<FileReader>) => {
       try {
-        const result = e.target?.result as string;
+        const result = event.target?.result as string;
         const data = JSON.parse(result, (k, v) => k === "date" ? new Date(v) : v) as Data;
         put_all(db, data);
         setEventbaseList(data.eventbase_list);
@@ -79,8 +80,8 @@ function App() {
         console.error("Error parsing JSON:", error);
       }
     };
-    reader.readAsText(file);
-  };
+    reader.readAsText(blob);
+  }
 
   const save = () => {
     const data: Data = {
@@ -206,27 +207,27 @@ function App() {
         editingEventbase ? <EventbaseEditView eventbase={editingEventbase} on_apply={handleApplyEventbase} on_cancel={handleCancelEventbase} on_delete={handleDeleteEventbase} /> :
           editingMilestone ? <MilestoneEditView milestone={editingMilestone} on_apply={handleApplyMilestone} on_cancel={handleCancelMilestone} on_delete={handleDeleteMilestone} /> :
             <>
-              <FlexboxGrid justify="end">
-                <input accept="application/json" onChange={load} type="file" />
-                <Button onClick={save}>save</Button>
-              </FlexboxGrid>
-              <HStack>
-                <Button onClick={handleAddEventbase}>add eventbase</Button>
-                <Button onClick={handleAddMilestone}>add milestone</Button>
-              </HStack>
               <Tabs activeKey={activeKey} onSelect={setActiveKey}>
                 <Tabs.Tab eventKey="1" title="calendar">
-                  <CalendarView date={date} eventbase_list={eventbaseList} milestone_list={milestoneList} on_edit={handleEditMilestone} set_date={setDate} />
+                  <CalendarView date={date} eventbase_list={eventbaseList} set_date={setDate} />
+                  <Button onClick={handleAddEventbase}>add date</Button>
+                  <MilestoneListViewComplex date={date} eventbase_list={eventbaseList} milestone_list={milestoneList} on_edit={handleEditMilestone} />
                 </Tabs.Tab>
-                <Tabs.Tab eventKey="2" title="timeline">
-                  <DatePicker cleanable={false} format='yyyy.MM.dd' onChange={value => value && setDate(value)} value={date} />
-                  <TimelineView date={date} eventbase_list={eventbaseList} milestone_list={milestoneList} on_edit={handleEditMilestone} />
-                </Tabs.Tab>
-                <Tabs.Tab eventKey="3" title="events">
+                <Tabs.Tab eventKey="2" title="events">
                   <Button onClick={handleAddEventbase}>add event</Button>
                   <EventbaseListView eventbaseList={eventbaseList} on_edit={handleEditEventbase} />
                 </Tabs.Tab>
-                <Tabs.Tab eventKey="4" title="reminders and notifications">
+                <Tabs.Tab eventKey="3" title="settings">
+                  <FlexboxGrid justify="space-around">
+                    <Uploader accept=".json" action="" fileListVisible={false} onChange={load} removable={false}>
+                      <Button appearance="primary" color="orange">Upload data from local file...</Button>
+                    </Uploader>
+                    <Button onClick={save}>Download data as file</Button>
+                  </FlexboxGrid>
+                  [others will be soon]
+                </Tabs.Tab>
+                <Tabs.Tab eventKey="4" title="debug">
+                  <Button onClick={handleAddMilestone}>add milestone</Button>
                   <MilestoneWithReminderNotificationView date={new Date()} eventbase_list={eventbaseList} milestone_list={milestoneList} set_milestone_list={setMilestoneList} />
                 </Tabs.Tab>
               </Tabs>

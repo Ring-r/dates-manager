@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, ButtonToolbar, Notification } from 'rsuite';
+import { Button, ButtonToolbar, Notification as SuiteNotification } from 'rsuite';
 import { add_reminder, create_milestone, Eventbase, get_last_action, get_uid, in_process, is_empty, Milestone, MilestoneActionReminder, settings } from './data';
 import { EventbaseView } from './EventbaseListView';
 import MilestoneListView from './MilestoneListView';
@@ -16,7 +16,33 @@ function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_mil
   const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | undefined>(undefined);
 
   useEffect(() => {
-    if (milestoneWithReminder !== null) return;
+    if (milestoneWithReminder !== null) {
+      if (Notification.permission === "granted") {
+        const notification = new Notification("Hello from Dates Manager!", {
+          body: "You have a reminder, please check it.",
+        });
+
+        notification.onclick = () => {
+          // Handle click event
+          console.log("Notification clicked!");
+        };
+      }
+
+      if ("Notification" in window && "serviceWorker" in navigator) {
+        Notification.requestPermission(permission => {
+          if (permission === "granted") {
+            navigator.serviceWorker.ready.then(registration => {
+              registration.showNotification("Hello from Dates Manager!", {
+                body: "You have a reminder, please check it.",
+                tag: "pwa-notification",
+              });
+            });
+          }
+        });
+      }
+
+      return;
+    }
 
     recalc_milestone_with_reminder_list();
   }, [milestoneWithReminder]);
@@ -54,7 +80,6 @@ function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_mil
 
   function recalc_milestone_with_reminder_list() {
     const now = new Date();
-    console.log(now);
 
     const milestoneWithReminderList_ = get_next_milestone_list(eventbase_list, milestone_list, now);
 
@@ -131,7 +156,7 @@ function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_mil
   return (
     <>
       {milestoneWithReminder ?
-        <Notification>
+        <SuiteNotification>
           <p>You have a reminder, please check it.</p>
           <hr />
           <EventbaseView eventbase={milestoneWithReminder.eventbase} />
@@ -140,7 +165,7 @@ function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_mil
             <Button onClick={handleIgnoreClick} appearance="default">Ignore</Button>
             <Button onClick={handleRemindClick} appearance="default">Remind</Button>
           </ButtonToolbar>
-        </Notification>
+        </SuiteNotification>
         :
         <MilestoneListView milestone_list={milestoneWithReminderList} />
       }

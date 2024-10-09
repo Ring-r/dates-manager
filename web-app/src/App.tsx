@@ -208,6 +208,12 @@ function App() {
     setDate(new Date(date.getTime() + step * 1 * 24 * 60 * 60 * 1000));
   }
 
+  const handleAllowNotification = () => {
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }
+
   return (
     <div className="App" onWheel={(e) => handleWheel(e)} >
       {
@@ -230,6 +236,7 @@ function App() {
                       <Button appearance="primary" color="orange">Upload data from local file...</Button>
                     </Uploader>
                     <Button onClick={save}>Download data as file</Button>
+                    <Button onClick={handleAllowNotification}>allow notification</Button>
                   </FlexboxGrid>
                   [others will be soon]
                 </Tabs.Tab>

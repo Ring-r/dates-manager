@@ -16,33 +16,7 @@ function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_mil
   const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | undefined>(undefined);
 
   useEffect(() => {
-    if (milestoneWithReminder !== null) {
-      if (Notification.permission === "granted") {
-        const notification = new Notification("Hello from Dates Manager!", {
-          body: "You have a reminder, please check it.",
-        });
-
-        notification.onclick = () => {
-          // Handle click event
-          console.log("Notification clicked!");
-        };
-      }
-
-      if ("Notification" in window && "serviceWorker" in navigator) {
-        Notification.requestPermission(permission => {
-          if (permission === "granted") {
-            navigator.serviceWorker.ready.then(registration => {
-              registration.showNotification("Hello from Dates Manager!", {
-                body: "You have a reminder, please check it.",
-                tag: "pwa-notification",
-              });
-            });
-          }
-        });
-      }
-
-      return;
-    }
+    if (milestoneWithReminder !== null) return;
 
     recalc_milestone_with_reminder_list();
   }, [milestoneWithReminder]);

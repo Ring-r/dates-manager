@@ -40,28 +40,28 @@ export interface Milestone {
   action_list?: MilestoneAction[];
 }
 
-export function create_milestone(date: Date, eventbase: Eventbase, state?: string) {
+export function create_milestone(date: Date, eventbase: Eventbase) {
   return {
     date: get_milestone_date(eventbase, date),
     eventbase: eventbase,
-    state: state !== undefined ? state : "no information",
   };
 }
 
-export function create_milestone_with_reminder(date: Date, eventbase: Eventbase) {
-  const milestone = create_milestone(date, eventbase);
-
+export function add_reminder(milestone: Milestone) {
   const posix_date = milestone.date.getTime();
   const posix_date_start = posix_date - 0 * 24 * 60 * 60 * 1000;  // 0 days // todo: use settings
   const posix_date_next = posix_date_start;
 
-  return {
-    ...milestone,
-    state: "in process",
-
-    action_list: [],
+  const remind_action: MilestoneActionReminder = {
+    date: new Date(),
     date_next: new Date(posix_date_next),
-  };
+    title: "remind",
+  }
+
+  milestone.action_list = [...(milestone.action_list || []), remind_action]
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  return milestone;
 }
 
 export function get_uid(milestone: Milestone) {
@@ -97,6 +97,11 @@ export function get_last_action(milestone: Milestone) {
 export function in_process(milestone: Milestone) {
   const last_action = get_last_action(milestone);
   return last_action && last_action.title === "remind";
+}
+
+export function is_empty(milestone: Milestone) {
+  const last_action = get_last_action(milestone);
+  return last_action === undefined;
 }
 
 export interface Data {
@@ -146,28 +151,26 @@ export const settings = {
 
 export function put_all(db: IDBDatabase, data: Data) {
   const transaction = db.transaction([dbStoreName], "readwrite");
+  transaction.onerror = function (event: Event) {
+    console.error("Unable to clear store and put all data", this.error);
+  };
   const objectStore = transaction.objectStore(dbStoreName);
-  try {
-    const request_clear = objectStore.clear();
-    request_clear.onsuccess = function () {
-      data.eventbase_list.forEach(eventbase => {
-        const request_put = objectStore.add(eventbase);
-        request_put.onerror = function () {
-          console.error("Unable to add data:", this.error);
-        };
-      });
+  objectStore.clear()
+    .onsuccess = function () {
+      data.eventbase_list.forEach(eventbase => objectStore.add(eventbase));
     };
-    request_clear.onerror = function () {
-      console.error("Unable to clear store:", this.error);
-    };
-  }
-  catch {
-    transaction.abort()
-  }
 }
 
 export function change(db: IDBDatabase, old_eventbase: Eventbase, new_eventbase: Eventbase | null) {
-  const objectStore = db.transaction([dbStoreName], "readwrite").objectStore(dbStoreName);
-  objectStore.delete(old_eventbase.uid);
-  new_eventbase && objectStore.put(new_eventbase);
+  const transaction = db.transaction([dbStoreName], "readwrite");
+  transaction.onerror = function (event: Event) {
+    console.error("Unable to delete old data or put new data", this.error);
+  };
+  const objectStore = transaction.objectStore(dbStoreName);
+  objectStore.delete(old_eventbase.uid)
+    .onsuccess = function () {
+      if (!new_eventbase) return;
+
+      objectStore.put(new_eventbase);
+    }
 }

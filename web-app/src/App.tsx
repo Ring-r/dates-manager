@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, FlexboxGrid, Tabs, Uploader } from 'rsuite';
+import { Button, FlexboxGrid, Tabs, Uploader, VStack } from 'rsuite';
 import 'rsuite-color-picker/lib/styles.less';
 import 'rsuite/dist/rsuite.min.css';
 import { FileType } from 'rsuite/esm/Uploader';
@@ -35,7 +35,7 @@ function App() {
         setDB(db_);
       };
 
-      request.onupgradeneeded = function () {
+      request.onupgradeneeded = function (event: Event) {
         const db_ = request.result;
         if (!db_.objectStoreNames.contains(dbStoreName)) {
           db_.createObjectStore(dbStoreName, { keyPath: "uid" });
@@ -51,12 +51,12 @@ function App() {
       if (!db) return;
 
       const request = db.transaction([dbStoreName], "readonly").objectStore(dbStoreName).getAll();
+      request.onerror = () => {
+        console.error("Unable to retrieve data:", request.error);
+      };
       request.onsuccess = () => {
         const data = request.result ?? [];
         setEventbaseList(data);
-      };
-      request.onerror = () => {
-        console.error("Unable to retrieve data:", request.error);
       };
     }
     initData();
@@ -74,7 +74,9 @@ function App() {
       try {
         const result = event.target?.result as string;
         const data = JSON.parse(result, (k, v) => k === "date" ? new Date(v) : v) as Data;
+
         put_all(db, data);
+        // todo: oncomplete
         setEventbaseList(data.eventbase_list);
       } catch (error) {
         console.error("Error parsing JSON:", error);
@@ -125,7 +127,7 @@ function App() {
     if (editingEventbase === null) return;
 
     change(db, editingEventbase, eventbase);
-
+    // todo: oncomplete
     setEventbaseList(
       [
         ...eventbaseList
@@ -144,7 +146,7 @@ function App() {
     if (editingEventbase === null) return;
 
     change(db, editingEventbase, null);
-
+    // todo: oncomplete
     setEventbaseList(
       eventbaseList
         .filter(eventbase => eventbase.uid !== editingEventbase.uid)
@@ -232,8 +234,10 @@ function App() {
                   [others will be soon]
                 </Tabs.Tab>
                 <Tabs.Tab eventKey="4" title="debug">
-                  <Button onClick={handleAddMilestone}>add milestone</Button>
-                  <MilestoneWithReminderNotificationView date={new Date()} eventbase_list={eventbaseList} milestone_list={milestoneList} set_milestone_list={setMilestoneList} />
+                  <VStack>
+                    <Button onClick={handleAddMilestone}>add milestone</Button>
+                    <MilestoneWithReminderNotificationView eventbase_list={eventbaseList} milestone_list={milestoneList} set_milestone_list={setMilestoneList} />
+                  </VStack>
                 </Tabs.Tab>
               </Tabs>
             </>

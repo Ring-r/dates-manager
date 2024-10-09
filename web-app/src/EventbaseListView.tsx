@@ -44,7 +44,7 @@ export function EventbaseEditView({ eventbase, on_apply, on_cancel, on_delete }:
 
   const handleTodayClick = () => {
     const today = new Date();
-    setDateMonth(today.getMonth());
+    setDateMonth(today.getMonth() + 1);
     setDateDay(today.getDate());
   }
 

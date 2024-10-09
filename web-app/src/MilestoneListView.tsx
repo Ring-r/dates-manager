@@ -11,13 +11,19 @@ interface MilestoneParam {
 
 export function MilestoneView({ milestone, on_edit }: MilestoneParam) {
   const last_action = get_last_action(milestone);
+  const color =
+    !last_action ? undefined :
+      last_action.title === "done" ? "green" :
+        last_action.title === "ignore" ? "red" :
+          last_action.title === "remind" ? "yellow" :
+            "violet";
 
   return (
     <HStack>
       <DateInput plaintext value={milestone.date} format='yyyy.MM.dd' />
       <Input plaintext value={milestone.eventbase.title} />
       {milestone.eventbase.actor && <Input plaintext value={milestone.eventbase.actor} />}
-      <Badge content={last_action ? last_action.title : "no information or empty"} />
+      {last_action && <Badge color={color} content={last_action.title} />}
       {on_edit && <Button onClick={on_edit}>edit</Button>}
     </HStack>
   );

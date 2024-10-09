@@ -1,53 +1,87 @@
 import { useEffect, useState } from 'react';
 import { Button, ButtonToolbar, Notification } from 'rsuite';
-import { create_milestone, create_milestone_with_reminder, Eventbase, eventbase_range_contains, get_last_action, get_uid, Milestone, milestone_range_contains, settings } from './data';
+import { add_reminder, create_milestone, Eventbase, get_last_action, get_uid, in_process, is_empty, Milestone, MilestoneActionReminder, settings } from './data';
 import { EventbaseView } from './EventbaseListView';
 import MilestoneListView from './MilestoneListView';
 
 interface MilestoneWithReminderListParam {
-  date: Date;
   eventbase_list: Eventbase[];
   milestone_list: Milestone[];
   set_milestone_list: (milestoneWithReminderList: Milestone[]) => void;
 }
 
-function MilestoneWithReminderListView({ date, eventbase_list, milestone_list, set_milestone_list }: MilestoneWithReminderListParam) {
+function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_milestone_list }: MilestoneWithReminderListParam) {
   const [milestoneWithReminder, setMilestoneWithReminder] = useState<Milestone | null>(null);
   const [milestoneWithReminderList, setMilestoneWithReminderList] = useState<Milestone[]>([]);
+  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | undefined>(undefined);
 
   useEffect(() => {
-    function recalc_milestone_with_reminder_list() {
-      if (!milestoneWithReminder) return;
-
-      const range_interval = settings.intervals.reminder; // todo: or use data from event settings
-
-      const filtered_by_date_event_ext_reminder_map = new Set(
-        milestone_list
-          .filter(milestone => milestone_range_contains(milestone, range_interval, date))
-          .map(milestone => get_uid(milestone))
-      );
-
-      const milestone_with_reminder_candidate_list = eventbase_list
-        .filter(eventbase => eventbase_range_contains(eventbase, range_interval, date))
-        .map(eventbase => create_milestone(date, eventbase))
-        .filter(milestone => !filtered_by_date_event_ext_reminder_map.has(get_uid(milestone)))
-        .map(milestone => create_milestone_with_reminder(date, milestone.eventbase));
-
-      const milestoneWithReminderList_ = [...milestone_list, ...milestone_with_reminder_candidate_list]
-        .sort((a, b) => a.date.getTime() - b.date.getTime());
-      setMilestoneWithReminderList(milestoneWithReminderList_);
-
-      const now = new Date();
-      const milestoneWithReminder_ = milestoneWithReminderList_
-        .find(milestone_with_reminder => {
-          const last_action = get_last_action(milestone_with_reminder);
-          return last_action && (last_action.title === "remind") && (last_action.date_next.getTime() < now.getTime());
-        }) || null;
-      setMilestoneWithReminder(milestoneWithReminder_);
-    }
+    if (milestoneWithReminder !== null) return;
 
     recalc_milestone_with_reminder_list();
-  }, [date, eventbase_list, milestone_list, milestoneWithReminder]);
+  }, [milestoneWithReminder]);
+
+  useEffect(() => {
+    recalc_milestone_with_reminder_list();
+  }, [eventbase_list, milestone_list]);
+
+  function get_next_milestone_list(eventbase_list: Eventbase[], milestone_list: Milestone[], date: Date) {
+    const next_year_date = new Date(date.getFullYear() + 1, date.getMonth(), date.getDate());
+    const reminder_interval = settings.intervals.reminder; // todo: or use data from event settings
+    return Array.from(new Map(
+      [
+        ...eventbase_list
+          .map(eventbase => create_milestone(date, eventbase)),
+        ...eventbase_list
+          .map(eventbase => create_milestone(next_year_date, eventbase)),
+        ...milestone_list,
+      ].map(milestone => [get_uid(milestone), milestone])).values()
+    )
+      .filter(milestone => {
+        if (in_process(milestone)) return true;
+        if (is_empty(milestone) && date.getTime() <= milestone.date.getTime() + reminder_interval.to_stop) return true;
+        return false;
+      })
+      .map(milestone => is_empty(milestone) ? add_reminder(milestone) : milestone)
+      .sort((a, b) => {
+        const a_last_action = get_last_action(a);
+        const a_date = a_last_action ? (a_last_action as MilestoneActionReminder).date_next : a.date;
+        const b_last_action = get_last_action(b);
+        const b_date = b_last_action ? (b_last_action as MilestoneActionReminder).date_next : b.date;
+        return a_date.getTime() - b_date.getTime();
+      });
+  }
+
+  function recalc_milestone_with_reminder_list() {
+    const now = new Date();
+    console.log(now);
+
+    const milestoneWithReminderList_ = get_next_milestone_list(eventbase_list, milestone_list, now);
+
+    setMilestoneWithReminderList(milestoneWithReminderList_);
+
+    const milestoneWithReminder_ = milestoneWithReminderList_.length > 0 ? milestoneWithReminderList_[0] : null;
+
+    if (!milestoneWithReminder_) {
+      setMilestoneWithReminder(null);
+      return;
+    }
+
+    const last_action = get_last_action(milestoneWithReminder_) as MilestoneActionReminder;
+    if (last_action.date_next.getTime() <= now.getTime()) {
+      setMilestoneWithReminder(milestoneWithReminder_);
+    }
+    else {
+      const targetDate: Date = (last_action as MilestoneActionReminder).date_next;
+
+      const now = new Date();
+      const timeDifference = targetDate.getTime() - now.getTime();
+      const maxTimeout = 2147483647; // Max value for setTimeout (approx. 24.8 days)
+      clearTimeout(timeoutId);
+      const timeoutId_ = setTimeout(recalc_milestone_with_reminder_list, Math.min(timeDifference, maxTimeout));
+      setTimeoutId(timeoutId_);
+    }
+  }
 
   const handleDoneClick = () => {
     if (!milestoneWithReminder) return;
@@ -89,6 +123,7 @@ function MilestoneWithReminderListView({ date, eventbase_list, milestone_list, s
         title: "remind",
       }
     ];
+    // todo: use something like `add_reminder(milestoneWithReminder, "after 1h")
     set_milestone_list([...milestone_list.filter(item => item !== milestoneWithReminder), milestoneWithReminder]);
     setMilestoneWithReminder(null);
   }

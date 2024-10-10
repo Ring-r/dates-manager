@@ -53,6 +53,8 @@ function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_mil
   }
 
   function recalc_milestone_with_reminder_list() {
+    clearTimeout(timeoutId);
+
     const now = new Date();
 
     const milestoneWithReminderList_ = get_next_milestone_list(eventbase_list, milestone_list, now);
@@ -76,7 +78,6 @@ function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_mil
       const now = new Date();
       const timeDifference = targetDate.getTime() - now.getTime();
       const maxTimeout = 2147483647; // Max value for setTimeout (approx. 24.8 days)
-      clearTimeout(timeoutId);
       const timeoutId_ = setTimeout(recalc_milestone_with_reminder_list, Math.min(timeDifference, maxTimeout));
       setTimeoutId(timeoutId_);
     }

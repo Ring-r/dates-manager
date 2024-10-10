@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, ButtonToolbar, Notification as SuiteNotification } from 'rsuite';
-import { add_reminder, create_milestone, Eventbase, get_last_action, get_reminder_stop_datetime, get_uid, in_process, is_empty, Milestone, MilestoneActionReminder, settings } from './data';
+import { create_milestone, Eventbase, get_reminder_stop_datetime, get_uid, in_process, is_base, Milestone, MilestoneStateRemind, settings, with_added_reminder } from './data';
 import { EventbaseView } from './EventbaseListView';
 import MilestoneListView from './MilestoneListView';
 
@@ -43,15 +43,13 @@ function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_mil
     )
       .filter(milestone => {
         if (in_process(milestone)) return true;
-        if (is_empty(milestone) && date.getTime() <= milestone.date.getTime() + reminder_interval.to_stop) return true;
+        if (is_base(milestone) && date.getTime() <= milestone.date.getTime() + reminder_interval.to_stop) return true;
         return false;
       })
-      .map(milestone => is_empty(milestone) ? add_reminder(milestone) : milestone)
+      .map(milestone => is_base(milestone) ? with_added_reminder(milestone) : milestone)
       .sort((a, b) => {
-        const a_last_action = get_last_action(a);
-        const a_date = a_last_action ? (a_last_action as MilestoneActionReminder).date_next : a.date;
-        const b_last_action = get_last_action(b);
-        const b_date = b_last_action ? (b_last_action as MilestoneActionReminder).date_next : b.date;
+        const a_date = (a.state as MilestoneStateRemind).next_reminder_datetime;
+        const b_date = (b.state as MilestoneStateRemind).next_reminder_datetime;
         return a_date.getTime() - b_date.getTime();
       });
   }
@@ -72,12 +70,12 @@ function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_mil
       return;
     }
 
-    const last_action = get_last_action(milestoneWithReminder_) as MilestoneActionReminder;
-    if (last_action.date_next.getTime() <= now.getTime()) {
+    const remind_next_datetime = (milestoneWithReminder_.state as MilestoneStateRemind).next_reminder_datetime;
+    if (remind_next_datetime.getTime() <= now.getTime()) {
       setMilestoneWithReminder(milestoneWithReminder_);
     }
     else {
-      const targetDate: Date = (last_action as MilestoneActionReminder).date_next;
+      const targetDate: Date = remind_next_datetime;
 
       const now = new Date();
       const timeDifference = targetDate.getTime() - now.getTime();
@@ -90,45 +88,58 @@ function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_mil
   const handleDoneClick = () => {
     if (!milestoneWithReminder) return;
 
-    milestoneWithReminder.action_list = [
-      ...(milestoneWithReminder.action_list || []),
-      {
-        date: new Date(),
-        title: "done",
-      }
-    ];
-    set_milestone_list([...milestone_list.filter(item => item !== milestoneWithReminder), milestoneWithReminder]);
+    const milestone: Milestone = {
+      ...milestoneWithReminder,
+      state: { type: "done", },
+    }
+
+    // todo: send request to storage (also store information about changes to history); if success then:
+    set_milestone_list([
+      ...milestone_list
+        .filter(item => get_uid(item) !== get_uid(milestoneWithReminder)),
+      milestone,
+    ]);
+    // todo: use sort?
+    // todo: extract this to separate action?
     setMilestoneWithReminder(null);
   }
 
   const handleIgnoreClick = () => {
     if (!milestoneWithReminder) return;
 
-    milestoneWithReminder.action_list = [
-      ...(milestoneWithReminder.action_list || []),
-      {
-        date: new Date(),
-        title: "ignore",
-      }
-    ];
-    set_milestone_list([...milestone_list.filter(item => item !== milestoneWithReminder), milestoneWithReminder]);
+    const milestone: Milestone = {
+      ...milestoneWithReminder,
+      state: { type: "ignore", },
+    }
+
+    // todo: send request to storage (also store information about changes to history); if success then:
+    set_milestone_list([
+      ...milestone_list
+        .filter(item => get_uid(item) !== get_uid(milestoneWithReminder)),
+      milestone,
+    ]);
+    // todo: use sort?
+    // todo: extract this to separate action?
     setMilestoneWithReminder(null);
   }
 
   const handleRemindClick = () => {
     if (!milestoneWithReminder) return;
 
-    const next_remind_date = new Date((new Date()).getTime() + 1 * 60 * 60 * 1000); // TODO: use correct calculation
-    milestoneWithReminder.action_list = [
-      ...(milestoneWithReminder.action_list || []),
-      {
-        date: new Date(),
-        date_next: next_remind_date,
-        title: "remind",
-      }
-    ];
-    // todo: use something like `add_reminder(milestoneWithReminder, "after 1h")
-    set_milestone_list([...milestone_list.filter(item => item !== milestoneWithReminder), milestoneWithReminder]);
+    const next_reminder_datetime = new Date((new Date()).getTime() + 1 * 60 * 60 * 1000); // TODO: use correct calculation
+    const milestone: Milestone = {
+      ...milestoneWithReminder,
+      state: { type: "remind", next_reminder_datetime: next_reminder_datetime, },
+    }
+
+    // todo: send request to storage (also store information about changes to history); if success then:
+    set_milestone_list([
+      ...milestone_list
+        .filter(item => get_uid(item) !== get_uid(milestoneWithReminder)),
+      milestone,
+    ]);
+    // todo: use sort?
+    // todo: extract this to separate action?
     setMilestoneWithReminder(null);
   }
 

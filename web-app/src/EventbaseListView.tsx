@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, HStack, Input, InputNumber, Message, SelectPicker, useToaster, VStack } from 'rsuite';
+import { Button, HStack, Input, InputNumber, Message, Panel, SelectPicker, useToaster, VStack } from 'rsuite';
 import { create_eventbase, Eventbase } from './data';
 
 interface EventbaseParam {
@@ -91,26 +91,28 @@ export function EventbaseEditView({ eventbase, on_apply, on_cancel, on_delete }:
   }
 
   return (
-    <VStack>
-      <HStack>
-        <InputNumber placeholder="year" value={dateYear} onChange={setDateYear} />
-        <Button onClick={() => setDateYear(new Date().getFullYear())}>current</Button>
-        <Button onClick={() => setDateYear(null)}>clear</Button>
-      </HStack>
-      <HStack>
-        {/* it is better to use InputPicker but it is broken. and it is better to use something like DatePicker with Time format */}
-        <SelectPicker cleanable={false} data={data_month} placeholder="month" value={dateMonth} onChange={setDateMonth} />
-        <SelectPicker cleanable={false} data={data_day} placeholder="day" value={dateDay} onChange={setDateDay} />
-        <Button onClick={handleTodayClick}>today</Button>
-      </HStack>
-      <Input placeholder="title" value={title} onChange={setTitle} />
-      <Input placeholder="actor" value={actor} onChange={setActor} />
-      <HStack>
-        <Button onClick={handleApplyClick}>apply</Button>
-        <Button onClick={on_cancel}>cancel</Button>
-        <Button onClick={on_delete}>delete</Button>
-      </HStack>
-    </VStack>
+    <Panel>
+      <VStack>
+        <HStack>
+          <InputNumber placeholder="year" value={dateYear} onChange={setDateYear} />
+          <Button onClick={() => setDateYear(new Date().getFullYear())}>current</Button>
+          <Button onClick={() => setDateYear(null)}>clear</Button>
+        </HStack>
+        <HStack>
+          {/* it is better to use InputPicker but it is broken. and it is better to use something like DatePicker with Time format */}
+          <SelectPicker cleanable={false} data={data_month} placeholder="month" value={dateMonth} onChange={setDateMonth} />
+          <SelectPicker cleanable={false} data={data_day} placeholder="day" value={dateDay} onChange={setDateDay} />
+          <Button onClick={handleTodayClick}>today</Button>
+        </HStack>
+        <Input placeholder="title" value={title} onChange={setTitle} />
+        <Input placeholder="actor" value={actor} onChange={setActor} />
+        <HStack>
+          <Button onClick={handleApplyClick}>apply</Button>
+          <Button onClick={on_cancel}>cancel</Button>
+          <Button onClick={on_delete}>delete</Button>
+        </HStack>
+      </VStack>
+    </Panel>
   );
 }
 

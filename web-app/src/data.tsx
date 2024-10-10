@@ -32,35 +32,53 @@ export function get_milestone_date(eventbase: Eventbase, date: Date) {
   return new Date(date.getFullYear(), eventbase.date_month - 1, eventbase.date_day);
 }
 
+
+export interface MilestoneStateBase {
+  type: "base";
+}
+
+export interface MilestoneStateDone {
+  type: "done";
+}
+
+export interface MilestoneStateIgnore {
+  type: "ignore";
+}
+
+export interface MilestoneStateRemind {
+  next_reminder_datetime: Date;
+  type: "remind";
+}
+
+export type MilestoneState = MilestoneStateBase | MilestoneStateDone | MilestoneStateIgnore | MilestoneStateRemind;
+
 export interface Milestone {
   date: Date; // period_id
   eventbase: Eventbase;
 
-  // "no_information" - undefined; "information is empty" - null; "remind" ("in_process"), "ignore", "done"
-  action_list?: MilestoneAction[];
+  // action_list?: MilestoneAction[];
 
-  description?: string;
+  state: MilestoneState; // "no information" ("base", "virtual", "not stored yet"); remind_next_datetime; "remind" ("in_process"); "ignore", "done"
+  story?: string;
 }
 
-export function create_milestone(date: Date, eventbase: Eventbase) {
+export function create_milestone(date: Date, eventbase: Eventbase): Milestone {
   return {
     date: get_milestone_date(eventbase, date),
     eventbase: eventbase,
+    state: { type: "base" },
   };
 }
 
-export function add_reminder(milestone: Milestone) {
+export function with_added_reminder(milestone: Milestone) {
   const datetime_start = get_reminder_start_datetime(milestone);
   const datetime_next = datetime_start;
 
-  const remind_action: MilestoneActionReminder = {
-    date: new Date(),
-    date_next: datetime_next,
-    title: "remind",
-  }
+  milestone.state = {
+    next_reminder_datetime: datetime_next,
+    type: "remind",
+  };
 
-  milestone.action_list = [...(milestone.action_list || []), remind_action]
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
 
   return milestone;
 }
@@ -79,41 +97,14 @@ export function get_uid(milestone: Milestone) {
   return [milestone.date.getTime(), milestone.eventbase.uid].join(" ");
 }
 
-
-export interface MilestoneActionDone {
-  date: Date;
-  title: "done";
-}
-
-export interface MilestoneActionIgnore {
-  date: Date;
-  title: "ignore";
-}
-
-export interface MilestoneActionReminder {
-  date: Date;
-  date_next: Date;
-  title: "remind";
-}
-
-export type MilestoneAction = MilestoneActionDone | MilestoneActionIgnore | MilestoneActionReminder;
-
-export function get_last_action(milestone: Milestone) {
-  if (milestone.action_list === undefined) return undefined;
-  if (milestone.action_list.length === 0) return null;
-
-  return milestone.action_list[milestone.action_list.length - 1];
-}
-
 export function in_process(milestone: Milestone) {
-  const last_action = get_last_action(milestone);
-  return last_action && last_action.title === "remind";
+  return milestone.state.type === "remind";
 }
 
-export function is_empty(milestone: Milestone) {
-  const last_action = get_last_action(milestone);
-  return last_action === undefined;
+export function is_base(milestone: Milestone) {
+  return milestone.state.type === "base";
 }
+
 
 export interface Data {
   dbVersion: number;

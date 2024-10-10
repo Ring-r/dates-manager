@@ -5,7 +5,7 @@ import 'rsuite/dist/rsuite.min.css';
 import { FileType } from 'rsuite/esm/Uploader';
 import './App.css';
 import CalendarView from './Calendar';
-import { change, create_eventbase, Data, data_filename, dbName, dbStoreName, dbVersion, Eventbase, get_uid, Milestone, put_all } from './data';
+import { change, create_eventbase, create_milestone, Data, data_filename, dbName, dbStoreName, dbVersion, Eventbase, get_uid, Milestone, put_all } from './data';
 import EventbaseListView, { EventbaseEditView } from './EventbaseListView';
 import { MilestoneEditView } from './MilestoneListView';
 import MilestoneListViewComplex from './MilestoneListViewComplex';
@@ -112,7 +112,6 @@ function App() {
   const [editingEventbase, setEditingEventbase] = useState<Eventbase | null>(null);
 
   const handleAddEventbase = () => {
-    const date = new Date();
     setEditingEventbase(
       create_eventbase(
         eventbaseList.length > 0 ? Math.max(...eventbaseList.map(item => item.uid)) + 1 : 0,
@@ -166,12 +165,7 @@ function App() {
       // todo: show error message
       return;
     }
-    setEditingMilestone(
-      {
-        date: new Date(),
-        eventbase: eventbaseList[0],
-      }
-    );
+    setEditingMilestone(create_milestone(date, eventbaseList[0]));
   }
 
   const handleEditMilestone = (milestone: Milestone) => {
@@ -221,7 +215,7 @@ function App() {
               <Tabs activeKey={activeKey} onSelect={setActiveKey}>
                 <Tabs.Tab eventKey="1" title="calendar">
                   <CalendarView date={date} eventbase_list={eventbaseList} set_date={setDate} />
-                  <Button onClick={handleAddEventbase}>add date</Button>
+                  <Button onClick={handleAddEventbase}>add event</Button>
                   <MilestoneListViewComplex date={date} eventbase_list={eventbaseList} milestone_list={milestoneList} on_edit={handleEditMilestone} />
                 </Tabs.Tab>
                 <Tabs.Tab eventKey="2" title="events">

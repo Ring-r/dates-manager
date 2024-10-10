@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, ButtonToolbar, Notification as SuiteNotification } from 'rsuite';
-import { add_reminder, create_milestone, Eventbase, get_last_action, get_uid, in_process, is_empty, Milestone, MilestoneActionReminder, settings } from './data';
+import { add_reminder, create_milestone, Eventbase, get_last_action, get_reminder_stop_datetime, get_uid, in_process, is_empty, Milestone, MilestoneActionReminder, settings } from './data';
 import { EventbaseView } from './EventbaseListView';
 import MilestoneListView from './MilestoneListView';
 
@@ -31,9 +31,13 @@ function MilestoneWithReminderListView({ eventbase_list, milestone_list, set_mil
     return Array.from(new Map(
       [
         ...eventbase_list
-          .map(eventbase => create_milestone(date, eventbase)),
-        ...eventbase_list
-          .map(eventbase => create_milestone(next_year_date, eventbase)),
+          .map(eventbase => {
+            const milestone = create_milestone(date, eventbase);
+            if (get_reminder_stop_datetime(milestone) <= date) {
+              milestone.date.setFullYear(milestone.date.getFullYear() + 1);
+            }
+            return milestone;
+          }),
         ...milestone_list,
       ].map(milestone => [get_uid(milestone), milestone])).values()
     )

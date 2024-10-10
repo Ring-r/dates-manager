@@ -91,8 +91,7 @@ export function EventbaseEditView({ eventbase, on_apply, on_cancel, on_delete }:
   }
 
   return (
-    <VStack key={eventbase.uid}>
-      {/* <DatePicker cleanable={false} format="yyyy.MM.dd" value={date} onChange={handleChangeDate} /> */}
+    <VStack>
       <HStack>
         <InputNumber placeholder="year" value={dateYear} onChange={setDateYear} />
         <Button onClick={() => setDateYear(new Date().getFullYear())}>current</Button>

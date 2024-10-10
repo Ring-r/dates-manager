@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, FlexboxGrid, Tabs, Uploader, VStack } from 'rsuite';
+import { Button, Tabs, Uploader, VStack } from 'rsuite';
 import 'rsuite-color-picker/lib/styles.less';
 import 'rsuite/dist/rsuite.min.css';
 import { FileType } from 'rsuite/esm/Uploader';
@@ -22,24 +22,22 @@ function App() {
   const [activeKey, setActiveKey] = useState<string | number | undefined>("1");
 
   // indexeddb
+
   useEffect(() => {
     function initDB() {
       const request = indexedDB.open(dbName, dbVersion);
-
-      request.onerror = () => {
-        console.error("Database error:", request.error);
+      request.onerror = (event: Event) => {
+        const error = (event.target as IDBOpenDBRequest).error;
+        console.error("Database error:", error);
       };
-
-      request.onsuccess = () => {
-        const db_ = request.result;
-        setDB(db_);
+      request.onsuccess = (event: Event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        setDB(db);
       };
-
-      request.onupgradeneeded = function (event: Event) {
-        const db_ = request.result;
-        if (!db_.objectStoreNames.contains(dbStoreName)) {
-          db_.createObjectStore(dbStoreName, { keyPath: "uid" });
-          console.log("Object store created");
+      request.onupgradeneeded = function (event: IDBVersionChangeEvent) {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(dbStoreName)) {
+          db.createObjectStore(dbStoreName, { keyPath: "uid" });
         }
       }
     }
@@ -51,18 +49,24 @@ function App() {
       if (!db) return;
 
       const request = db.transaction([dbStoreName], "readonly").objectStore(dbStoreName).getAll();
-      request.onerror = () => {
-        console.error("Unable to retrieve data:", request.error);
+      request.onerror = (event: Event) => {
+        const error = (event.target as IDBOpenDBRequest).error;
+        console.error("Unable to retrieve data:", error);
       };
-      request.onsuccess = () => {
-        const data = request.result ?? [];
+      request.onsuccess = (event: Event) => {
+        const data = (event.target as IDBRequest<Eventbase[]>).result;
         setEventbaseList(data);
       };
     }
     initData();
   }, [db]);
 
+  const clear = () => {
+    // todo: implement
+  }
+
   // load/save
+
   const load = (fileList: FileType[]) => {
     if (!db) return;
 
@@ -225,13 +229,13 @@ function App() {
                   <EventbaseListView eventbaseList={eventbaseList} on_edit={handleEditEventbase} />
                 </Tabs.Tab>
                 <Tabs.Tab eventKey="3" title="settings">
-                  <FlexboxGrid justify="space-around">
+                  <VStack>
+                    <Button onClick={save}>Download data as file</Button>
                     <Uploader accept=".json" action="" fileListVisible={false} onChange={load} removable={false}>
                       <Button appearance="primary" color="orange">Upload data from local file...</Button>
                     </Uploader>
-                    <Button onClick={save}>Download data as file</Button>
-                  </FlexboxGrid>
-                  [others will be soon]
+                    <Button appearance="primary" color="red" disabled onClick={clear}>Clear data</Button>
+                  </VStack>
                 </Tabs.Tab>
                 <Tabs.Tab eventKey="4" title="debug">
                   <VStack>

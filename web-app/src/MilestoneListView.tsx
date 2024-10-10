@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { Badge, Button, DateInput, DatePicker, HStack, Input, VStack } from 'rsuite';
-import { Eventbase, get_last_action, get_uid, Milestone, MilestoneAction } from './data';
+import { Badge, Button, DateInput, HStack, Input, VStack } from 'rsuite';
+import { get_last_action, get_uid, in_process, Milestone, MilestoneActionReminder } from './data';
 import { EventbaseView } from './EventbaseListView';
-import MilestoneActionListView from './MilestoneActionListView';
 
 interface MilestoneParam {
   milestone: Milestone;
@@ -37,37 +36,40 @@ interface MilestoneEditParam {
 }
 
 export function MilestoneEditView({ milestone, on_apply, on_cancel, on_delete }: MilestoneEditParam) {
-  const [date, setDate] = useState<Date | null>(milestone.date);
-  const [eventbase, setEventbase] = useState<Eventbase>(milestone.eventbase); // todo: | null 
-  const [actionList, setActionList] = useState<MilestoneAction[] | undefined>(milestone.action_list);
-  const [milestoneActionEditMode, setMilestoneActionEditMode] = useState<boolean>(false);
+  const [description, setDescription] = useState<string>(milestone.description || "");
 
+  const state = () => {
+    const last_action = get_last_action(milestone);
+    if (last_action === null) return "empty";
+    if (last_action === undefined) return "no information";
+    if (!in_process(milestone)) return last_action.title;
+    const remind_next_datetime = (last_action as MilestoneActionReminder).date_next
+    const remind_next_duration = new Date(remind_next_datetime.getTime() - (new Date()).getTime());
+    return `remind after ${remind_next_duration.toLocaleTimeString()} at ${remind_next_datetime.toLocaleString()}`
+  }
 
   const handleApplyClick = () => {
-    if (!date) return;
-    // if (!title) return;
-
     on_apply(
       {
-        date: date,
-        eventbase: eventbase,
-        action_list: actionList,
+        ...milestone,
+        description: description !== "" ? description : undefined,
       }
     );
   }
 
   return (
     <VStack>
-      {!milestoneActionEditMode && <DatePicker cleanable={false} format="yyyy" value={date} onChange={setDate} />}
-      {!milestoneActionEditMode && <EventbaseView eventbase={eventbase} />}
-      <MilestoneActionListView milestone_action_list={actionList} set_milestone_action_list={setActionList} setEditMode={setMilestoneActionEditMode} />
-      {!milestoneActionEditMode &&
-        <HStack>
-          <Button onClick={handleApplyClick}>apply</Button>
-          <Button onClick={on_cancel}>cancel</Button>
-          <Button onClick={on_delete}>delete</Button>
-        </HStack>
-      }
+      <HStack>
+        <Input plaintext value={milestone.date.getFullYear() + "."} />
+        <EventbaseView eventbase={milestone.eventbase} />
+      </HStack>
+      <Input as="textarea" onChange={setDescription} placeholder="description" value={description} />
+      <Input plaintext value={state()} />
+      <HStack>
+        <Button onClick={handleApplyClick}>apply</Button>
+        <Button onClick={on_cancel}>cancel</Button>
+        <Button onClick={on_delete}>delete</Button>
+      </HStack>
     </VStack>
   );
 }

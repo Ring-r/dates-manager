@@ -38,6 +38,8 @@ export interface Milestone {
 
   // "no_information" - undefined; "information is empty" - null; "remind" ("in_process"), "ignore", "done"
   action_list?: MilestoneAction[];
+
+  description?: string;
 }
 
 export function create_milestone(date: Date, eventbase: Eventbase) {
@@ -48,13 +50,12 @@ export function create_milestone(date: Date, eventbase: Eventbase) {
 }
 
 export function add_reminder(milestone: Milestone) {
-  const posix_date = milestone.date.getTime();
-  const posix_date_start = posix_date - 0 * 24 * 60 * 60 * 1000;  // 0 days // todo: use settings
-  const posix_date_next = posix_date_start;
+  const datetime_start = get_reminder_start_datetime(milestone);
+  const datetime_next = datetime_start;
 
   const remind_action: MilestoneActionReminder = {
     date: new Date(),
-    date_next: new Date(posix_date_next),
+    date_next: datetime_next,
     title: "remind",
   }
 
@@ -62,6 +63,16 @@ export function add_reminder(milestone: Milestone) {
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
   return milestone;
+}
+
+export function get_reminder_start_datetime(milestone: Milestone) {
+  const reminder_interval = settings.intervals.reminder; // todo: `milestone.eventbase.settings?.intervals?.reminder || settings.intervals.reminder`
+  return new Date(milestone.date.getTime() - reminder_interval.to_start);
+}
+
+export function get_reminder_stop_datetime(milestone: Milestone) {
+  const reminder_interval = settings.intervals.reminder; // todo: `milestone.eventbase.settings?.intervals?.reminder || settings.intervals.reminder`
+  return new Date(milestone.date.getTime() + reminder_interval.to_stop);
 }
 
 export function get_uid(milestone: Milestone) {

@@ -3,25 +3,27 @@ import { Badge, Button, DateInput, DatePicker, Divider, FlexboxGrid, HStack, Inp
 import { get_uid, Milestone } from './data';
 import { EventbaseView } from './EventbaseListView';
 
+function state_type_to_color(state_type: string) {
+  if (state_type === "done") return "green";
+  if (state_type === "ignore") return "red";
+  if (state_type === "remind") return "yellow";
+  return "violet";
+};
+
 interface MilestoneParam {
   milestone: Milestone;
   on_edit?: () => void;
 }
 
 export function MilestoneView({ milestone, on_edit }: MilestoneParam) {
-  const state_type = milestone.state.type;
-  const color =
-    state_type === "done" ? "green" :
-      state_type === "ignore" ? "red" :
-        state_type === "remind" ? "yellow" :
-          "violet";
+  const [stateType] = useState<string>(milestone.state.type);
 
   return (
     <HStack>
       <DateInput plaintext value={milestone.date} format='yyyy.MM.dd' />
       <Input plaintext value={milestone.eventbase.title} />
       {milestone.eventbase.actor && <Input plaintext value={milestone.eventbase.actor} />}
-      {state_type !== "base" && <Badge color={color} content={state_type} />}
+      {stateType !== "base" && <Badge color={state_type_to_color(stateType)} content={stateType} />}
       {on_edit && <Button onClick={on_edit}>edit</Button>}
     </HStack>
   );
@@ -35,27 +37,43 @@ interface MilestoneEditParam {
 }
 
 export function MilestoneEditView({ milestone, on_apply, on_cancel, on_delete }: MilestoneEditParam) {
-  const [nextReminderDatetime, setNextReminderDatetime] = useState<Date>(milestone.state.type === "remind" ? milestone.state.next_reminder_datetime : new Date());
+  const default_reminder_duration = 2 * 60 * 60 * 1000;
+  const next_reminder_datetime = milestone.state.type === "remind" ? milestone.state.next_reminder_datetime.getTime() : (new Date()).getTime() + default_reminder_duration;
+  const next_reminder_duration = milestone.state.type === "remind" ? milestone.state.next_reminder_datetime.getTime() - (new Date()).getTime() : default_reminder_duration;
+
+  const [nextReminderDatetime, setNextReminderDatetime] = useState<number>(next_reminder_datetime);
+  const [nextReminderDuration, setNextReminderDuration] = useState<number>(next_reminder_duration);
   const [stateType, setStateType] = useState<string>(milestone.state.type);
   const [story, setStory] = useState<string>(milestone.story || "");
 
-  const color =
-    stateType === "done" ? "green" :
-      stateType === "ignore" ? "red" :
-        stateType === "remind" ? "yellow" :
-          "violet";
+  function nextReminderDatetimeChangeHandler(value: Date | null) {
+    if (!value) return;
+
+    const next_reminder_datetime = value.getTime();
+    const next_reminder_duration = next_reminder_datetime - (new Date()).getTime();
+    setNextReminderDatetime(next_reminder_datetime);
+    setNextReminderDuration(next_reminder_duration);
+  }
+
+  function nextReminderDurationChangeHandler(value: Date | null) {
+    if (!value) return;
+
+    const next_reminder_duration = value.getTime();
+    const next_reminder_datetime = (new Date()).getTime() + next_reminder_duration;
+    setNextReminderDuration(next_reminder_duration);
+    setNextReminderDatetime(next_reminder_datetime);
+  }
 
   const StateView = () => {
-    const next_reminder_duration = new Date(nextReminderDatetime.getTime() - (new Date()).getTime());
     return (
       <VStack alignItems="center">
         <Text>after</Text>
-        <DatePicker cleanable={false} format="HH:mm" value={next_reminder_duration} />
+        <DatePicker cleanable={false} format="HH:mm" onChange={nextReminderDurationChangeHandler} value={new Date(nextReminderDuration)} />
         <Text>at</Text>
-        <DatePicker cleanable={false} format="yyyy.MM.dd HH:mm" value={nextReminderDatetime} />
+        <DatePicker cleanable={false} format="yyyy.MM.dd HH:mm" onChange={nextReminderDatetimeChangeHandler} value={new Date(nextReminderDatetime)} />
       </VStack>
     )
-  }
+  };
 
   const handleApplyClick = () => {
     on_apply(
@@ -84,15 +102,15 @@ export function MilestoneEditView({ milestone, on_apply, on_cancel, on_delete }:
       </Panel>
       <Panel>
         <FlexboxGrid justify="center">
-          <Badge color={color} content={stateType} />
+          <Badge color={state_type_to_color(stateType)} content={stateType} />
         </FlexboxGrid>
       </Panel>
       {stateType === "remind" && <StateView />}
       <Panel>
         <FlexboxGrid justify="space-between">
-          <Button>done</Button>
-          <Button>ignore</Button>
-          <Button>remind</Button>
+          <Button onClick={() => setStateType("done")}>done</Button>
+          <Button onClick={() => setStateType("ignore")}>ignore</Button>
+          <Button onClick={() => setStateType("remind")}>remind</Button>
         </FlexboxGrid>
       </Panel>
       <Divider />

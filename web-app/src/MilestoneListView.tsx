@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Badge, Button, DateInput, DatePicker, Divider, FlexboxGrid, HStack, Input, Panel, Text, VStack } from 'rsuite';
-import { get_uid, Milestone } from './data';
+import { Badge, Button, DateInput, DatePicker, Divider, FlexboxGrid, HStack, Input, Message, Panel, Text, useToaster, VStack } from 'rsuite';
+import { get_uid, Milestone, MilestoneStateBase, MilestoneStateDone, MilestoneStateIgnore, MilestoneStateRemind } from './data';
 import { EventbaseView } from './EventbaseListView';
 
 function state_type_to_color(state_type: string) {
@@ -46,6 +46,8 @@ export function MilestoneEditView({ milestone, on_apply, on_cancel, on_delete }:
   const [stateType, setStateType] = useState<string>(milestone.state.type);
   const [story, setStory] = useState<string>(milestone.story || "");
 
+  const toaster = useToaster();
+
   function nextReminderDatetimeChangeHandler(value: Date | null) {
     if (!value) return;
 
@@ -76,19 +78,42 @@ export function MilestoneEditView({ milestone, on_apply, on_cancel, on_delete }:
   };
 
   const handleApplyClick = () => {
+    if (stateType === "remind" && nextReminderDatetime < (new Date()).getTime()) {
+      toaster.push((
+        <Message showIcon type="error" closable>next reminder datetime must be more then now.</Message>
+      ), { duration: 5000 });
+      return;
+    }
+
+    const state = stateType === "base" ? { type: "base" } as MilestoneStateBase :
+      stateType === "done" ? { type: "done" } as MilestoneStateDone :
+        stateType === "ignore" ? { type: "ignore" } as MilestoneStateIgnore :
+          { next_reminder_datetime: new Date(nextReminderDatetime), type: "remind" } as MilestoneStateRemind;
+
     on_apply(
       {
         ...milestone,
+        state: state,
         story: story !== "" ? story : undefined,
       }
     );
+  }
+
+  const handleCancelClick = () => {
+    if (milestone.state.type === "remind" && milestone.state.next_reminder_datetime.getTime() < (new Date()).getTime()) { // or base and in interval
+      toaster.push((
+        <Message showIcon type="error" closable>next reminder datetime must be more then now.</Message>
+      ), { duration: 5000 });
+      return;
+    }
+    on_cancel();
   }
 
   return (
     <Panel>
       <FlexboxGrid justify="space-between">
         <Button onClick={handleApplyClick}>apply</Button>
-        <Button onClick={on_cancel}>cancel</Button>
+        <Button onClick={handleCancelClick}>cancel</Button>
         <Button onClick={on_delete}>delete</Button>
       </FlexboxGrid>
       <Divider />

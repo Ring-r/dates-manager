@@ -1,16 +1,16 @@
 {
   "files": {
     "main.css": "/dates-manager/static/css/main.86ac999b.css",
-    "main.js": "/dates-manager/static/js/main.70ce005f.js",
+    "main.js": "/dates-manager/static/js/main.786b6763.js",
     "static/js/453.77aef9b5.chunk.js": "/dates-manager/static/js/453.77aef9b5.chunk.js",
     "static/media/styles.less": "/dates-manager/static/media/styles.3f39eab90db05082c269.less",
     "index.html": "/dates-manager/index.html",
     "main.86ac999b.css.map": "/dates-manager/static/css/main.86ac999b.css.map",
-    "main.70ce005f.js.map": "/dates-manager/static/js/main.70ce005f.js.map",
+    "main.786b6763.js.map": "/dates-manager/static/js/main.786b6763.js.map",
     "453.77aef9b5.chunk.js.map": "/dates-manager/static/js/453.77aef9b5.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.86ac999b.css",
-    "static/js/main.70ce005f.js"
+    "static/js/main.786b6763.js"
   ]
 }

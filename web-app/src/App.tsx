@@ -5,11 +5,10 @@ import 'rsuite/dist/rsuite.min.css';
 import { FileType } from 'rsuite/esm/Uploader';
 import './App.css';
 import CalendarView from './Calendar';
-import { change, create_eventbase, create_milestone, Data, data_filename, dbName, dbStoreName, dbVersion, Eventbase, get_uid, Milestone, put_all } from './data';
+import { change, create_eventbase, create_milestone, Data, data_filename, dbName, dbStoreName, dbVersion, Eventbase, get_reminder_stop_datetime, get_uid, in_process, is_base, Milestone, MilestoneStateRemind, put_all, settings, with_added_reminder } from './data';
 import EventbaseListView, { EventbaseEditView } from './EventbaseListView';
-import { MilestoneEditView } from './MilestoneListView';
+import MilestoneListView, { MilestoneEditView } from './MilestoneListView';
 import MilestoneListViewComplex from './MilestoneListViewComplex';
-import MilestoneWithReminderNotificationView from './MilestoneWithReminderListView';
 
 
 function App() {
@@ -158,6 +157,7 @@ function App() {
   }
 
   // editingMilestone
+
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
 
   const handleAddMilestone = () => {
@@ -199,6 +199,80 @@ function App() {
     setEditingMilestone(null);
   }
 
+  // reminder
+
+  const [milestoneWithReminderList, setMilestoneWithReminderList] = useState<Milestone[]>([]);
+  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | undefined>(undefined);
+
+  useEffect(() => {
+    if (editingMilestone !== null) return;
+
+    recalc_milestone_with_reminder_list();
+  }, [editingMilestone]);
+
+  useEffect(() => {
+    recalc_milestone_with_reminder_list();
+  }, [eventbaseList, milestoneList]);
+
+  function get_next_milestone_list(eventbase_list: Eventbase[], milestone_list: Milestone[], date: Date) {
+    const next_year_date = new Date(date.getFullYear() + 1, date.getMonth(), date.getDate());
+    const reminder_interval = settings.intervals.reminder; // todo: or use data from event settings
+    return Array.from(new Map(
+      [
+        ...eventbase_list
+          .map(eventbase => {
+            const milestone = create_milestone(date, eventbase);
+            if (get_reminder_stop_datetime(milestone) <= date) {
+              milestone.date.setFullYear(milestone.date.getFullYear() + 1);
+            }
+            return milestone;
+          }),
+        ...milestone_list,
+      ].map(milestone => [get_uid(milestone), milestone])).values()
+    )
+      .filter(milestone => {
+        if (in_process(milestone)) return true;
+        if (is_base(milestone) && date.getTime() <= milestone.date.getTime() + reminder_interval.to_stop) return true;
+        return false;
+      })
+      .map(milestone => is_base(milestone) ? with_added_reminder(milestone) : milestone)
+      .sort((a, b) => {
+        const a_date = (a.state as MilestoneStateRemind).next_reminder_datetime;
+        const b_date = (b.state as MilestoneStateRemind).next_reminder_datetime;
+        return a_date.getTime() - b_date.getTime();
+      });
+  }
+
+  function recalc_milestone_with_reminder_list() {
+    clearTimeout(timeoutId);
+
+    const now = new Date();
+
+    const milestoneWithReminderList_ = get_next_milestone_list(eventbaseList, milestoneList, now);
+
+    setMilestoneWithReminderList(milestoneWithReminderList_);
+
+    const milestoneWithReminder_ = milestoneWithReminderList_.length > 0 ? milestoneWithReminderList_[0] : null;
+
+    if (!milestoneWithReminder_) {
+      setEditingMilestone(null);
+      return;
+    }
+
+    const remind_next_datetime = (milestoneWithReminder_.state as MilestoneStateRemind).next_reminder_datetime;
+    if (remind_next_datetime.getTime() <= now.getTime()) {
+      setEditingMilestone(milestoneWithReminder_);
+    }
+    else {
+      const targetDate: Date = remind_next_datetime;
+
+      const now = new Date();
+      const timeDifference = targetDate.getTime() - now.getTime();
+      const maxTimeout = 2147483647; // Max value for setTimeout (approx. 24.8 days)
+      const timeoutId_ = setTimeout(recalc_milestone_with_reminder_list, Math.min(timeDifference, maxTimeout));
+      setTimeoutId(timeoutId_);
+    }
+  }
 
   // ---
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -232,10 +306,7 @@ function App() {
                   </VStack>
                 </Tabs.Tab>
                 <Tabs.Tab eventKey="4" title="debug">
-                  <VStack>
-                    <Button onClick={handleAddMilestone}>add milestone</Button>
-                    <MilestoneWithReminderNotificationView eventbase_list={eventbaseList} milestone_list={milestoneList} set_milestone_list={setMilestoneList} />
-                  </VStack>
+                  <MilestoneListView milestone_list={milestoneWithReminderList} />
                 </Tabs.Tab>
               </Tabs>
             </>

@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Tabs, Uploader, VStack } from 'rsuite';
+import { useEffect, useState } from 'react';
+import { Button, FlexboxGrid, Panel, Tabs, Uploader } from 'rsuite';
 import 'rsuite-color-picker/lib/styles.less';
 import 'rsuite/dist/rsuite.min.css';
 import { FileType } from 'rsuite/esm/Uploader';
 import './App.css';
 import CalendarView from './Calendar';
-import { change, create_eventbase, create_milestone, Data, data_filename, dbName, dbStoreName, dbVersion, Eventbase, get_reminder_stop_datetime, get_uid, in_process, is_base, Milestone, MilestoneStateRemind, put_all, settings, with_added_reminder } from './data';
+import { compare_eventbase, compare_milestone, create_eventbase, create_milestone, Data, data_filename, db_delete_and_put_eventbase, db_delete_and_put_milestone, db_put_all, dbEventbaseStoreName, dbMilestoneStoreName, dbName, dbVersion, Eventbase, get_reminder_stop_datetime, get_uid, in_process, is_base, Milestone, MilestoneStateRemind, settings, with_added_reminder } from './data';
 import EventbaseListView, { EventbaseEditView } from './EventbaseListView';
 import MilestoneListView, { MilestoneEditView } from './MilestoneListView';
 import MilestoneListViewComplex from './MilestoneListViewComplex';
@@ -35,8 +35,11 @@ function App() {
       };
       request.onupgradeneeded = function (event: IDBVersionChangeEvent) {
         const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(dbStoreName)) {
-          db.createObjectStore(dbStoreName, { keyPath: "uid" });
+        if (!db.objectStoreNames.contains(dbEventbaseStoreName)) {
+          db.createObjectStore(dbEventbaseStoreName, { keyPath: "uid" });
+        }
+        if (!db.objectStoreNames.contains(dbMilestoneStoreName)) {
+          db.createObjectStore(dbMilestoneStoreName);
         }
       }
     }
@@ -47,22 +50,27 @@ function App() {
     function initData() {
       if (!db) return;
 
-      const request = db.transaction([dbStoreName], "readonly").objectStore(dbStoreName).getAll();
-      request.onerror = (event: Event) => {
+      const request_eventbase = db.transaction([dbEventbaseStoreName], "readonly").objectStore(dbEventbaseStoreName).getAll();
+      request_eventbase.onerror = (event: Event) => {
         const error = (event.target as IDBOpenDBRequest).error;
         console.error("Unable to retrieve data:", error);
       };
-      request.onsuccess = (event: Event) => {
+      request_eventbase.onsuccess = (event: Event) => {
         const data = (event.target as IDBRequest<Eventbase[]>).result;
         setEventbaseList(data);
+      };
+      const request_milestone = db.transaction([dbMilestoneStoreName], "readonly").objectStore(dbMilestoneStoreName).getAll();
+      request_milestone.onerror = (event: Event) => {
+        const error = (event.target as IDBOpenDBRequest).error;
+        console.error("Unable to retrieve data:", error);
+      };
+      request_milestone.onsuccess = (event: Event) => {
+        const data = (event.target as IDBRequest<Milestone[]>).result;
+        setMilestoneList(data);
       };
     }
     initData();
   }, [db]);
-
-  const clear = () => {
-    // todo: implement
-  }
 
   // load/save
 
@@ -78,9 +86,9 @@ function App() {
         const result = event.target?.result as string;
         const data = JSON.parse(result, (k, v) => k === "date" ? new Date(v) : v) as Data;
 
-        put_all(db, data);
-        // todo: oncomplete
+        db_put_all(db, data);
         setEventbaseList(data.eventbase_list);
+        setMilestoneList(data.milestone_list);
       } catch (error) {
         console.error("Error parsing JSON:", error);
       }
@@ -92,6 +100,7 @@ function App() {
     const data: Data = {
       dbVersion: dbVersion,
       eventbase_list: eventbaseList,
+      milestone_list: milestoneList,
     }
     const json = JSON.stringify(data);
     const blob = new Blob([json], { type: "text/json" });
@@ -128,14 +137,14 @@ function App() {
     if (!db) return;
     if (editingEventbase === null) return;
 
-    change(db, editingEventbase, eventbase);
-    // todo: oncomplete
+    db_delete_and_put_eventbase(db, editingEventbase, eventbase)
     setEventbaseList(
       [
         ...eventbaseList
           .filter(eventbase => eventbase.uid !== editingEventbase.uid),
         eventbase,
-      ].sort((a, b) => a.date_month !== b.date_month ? a.date_month - b.date_month : a.date_day - b.date_day));
+      ].sort(compare_eventbase)
+    );
     setEditingEventbase(null);
   }
 
@@ -147,8 +156,7 @@ function App() {
     if (!db) return;
     if (editingEventbase === null) return;
 
-    change(db, editingEventbase, null);
-    // todo: oncomplete
+    db_delete_and_put_eventbase(db, editingEventbase, null);
     setEventbaseList(
       eventbaseList
         .filter(eventbase => eventbase.uid !== editingEventbase.uid)
@@ -173,14 +181,16 @@ function App() {
   }
 
   const handleApplyMilestone = (milestone: Milestone) => {
+    if (!db) return;
     if (editingMilestone === null) return;
 
+    db_delete_and_put_milestone(db, editingMilestone, milestone);
     setMilestoneList(
       [
         ...milestoneList
           .filter(milestone => get_uid(milestone) !== get_uid(editingMilestone)),
         milestone,
-      ].sort((a, b) => a.date.getDay() - b.date.getDay())
+      ].sort(compare_milestone)
     );
     setEditingMilestone(null);
   }
@@ -190,8 +200,10 @@ function App() {
   }
 
   const handleDeleteMilestone = () => {
+    if (!db) return;
     if (editingMilestone === null) return;
 
+    db_delete_and_put_milestone(db, editingMilestone, null);
     setMilestoneList(
       milestoneList
         .filter(milestone => get_uid(milestone) !== get_uid(editingMilestone))
@@ -215,7 +227,6 @@ function App() {
   }, [eventbaseList, milestoneList]);
 
   function get_next_milestone_list(eventbase_list: Eventbase[], milestone_list: Milestone[], date: Date) {
-    const next_year_date = new Date(date.getFullYear() + 1, date.getMonth(), date.getDate());
     const reminder_interval = settings.intervals.reminder; // todo: or use data from event settings
     return Array.from(new Map(
       [
@@ -274,14 +285,8 @@ function App() {
     }
   }
 
-  // ---
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    const step = e.deltaY > 0 ? 1 : -1;
-    setDate(new Date(date.getTime() + step * 1 * 24 * 60 * 60 * 1000));
-  }
-
   return (
-    <div className="App" onWheel={(e) => handleWheel(e)} >
+    <div className="App" >
       {
         editingEventbase ? <EventbaseEditView eventbase={editingEventbase} on_apply={handleApplyEventbase} on_cancel={handleCancelEventbase} on_delete={handleDeleteEventbase} /> :
           editingMilestone ? <MilestoneEditView milestone={editingMilestone} on_apply={handleApplyMilestone} on_cancel={handleCancelMilestone} on_delete={handleDeleteMilestone} /> :
@@ -297,13 +302,14 @@ function App() {
                   <EventbaseListView eventbaseList={eventbaseList} on_edit={handleEditEventbase} />
                 </Tabs.Tab>
                 <Tabs.Tab eventKey="3" title="settings">
-                  <VStack>
-                    <Button onClick={save}>Download data as file</Button>
-                    <Uploader accept=".json" action="" fileListVisible={false} onChange={load} removable={false}>
-                      <Button appearance="primary" color="orange">Upload data from local file...</Button>
-                    </Uploader>
-                    <Button appearance="primary" color="red" disabled onClick={clear}>Clear data</Button>
-                  </VStack>
+                  <Panel>
+                    <FlexboxGrid justify="space-between">
+                      <Button onClick={save}>Save data to local file</Button>
+                      <Uploader accept=".json" action="" fileListVisible={false} onChange={load} removable={false}>
+                        <Button appearance="primary" color="orange">Load data from local file (add if not exist)</Button>
+                      </Uploader>
+                    </FlexboxGrid>
+                  </Panel>
                 </Tabs.Tab>
                 <Tabs.Tab eventKey="4" title="debug">
                   <MilestoneListView milestone_list={milestoneWithReminderList} />

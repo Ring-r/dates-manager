@@ -1,5 +1,6 @@
 export const dbName = "dates-manager";
-export const dbStoreName = "data";
+export const dbEventbaseStoreName = "eventbase_data";
+export const dbMilestoneStoreName = "milestone_data";
 export const dbVersion = 1;
 
 export const data_filename = "dates.json";
@@ -14,6 +15,17 @@ export interface Eventbase {
   date_day: number;
   title: string;
   actor?: string;
+}
+
+export function compare_eventbase(a: Eventbase, b: Eventbase): number {
+  if (a.date_month !== b.date_month) return a.date_month - b.date_month;
+  if (a.date_day !== b.date_day) return a.date_day - b.date_day;
+  if (a.title !== b.title) return a.title < b.title ? -1 : 1;
+
+  if (!a.actor) return -1;
+  if (!b.actor) return +1;
+
+  return a.actor < b.actor ? -1 : 1;
 }
 
 export function create_eventbase(uid: number, date_year: number | undefined, date_month: number, date_day: number, title: string, actor?: string) {
@@ -62,6 +74,12 @@ export interface Milestone {
   story?: string;
 }
 
+export function compare_milestone(a: Milestone, b: Milestone): number {
+  if (a.date.getDay() !== b.date.getDay()) return a.date.getDay() - b.date.getDay();
+
+  return compare_eventbase(a.eventbase, b.eventbase);
+};
+
 export function create_milestone(date: Date, eventbase: Eventbase): Milestone {
   return {
     date: get_milestone_date(eventbase, date),
@@ -109,6 +127,7 @@ export function is_base(milestone: Milestone) {
 export interface Data {
   dbVersion: number;
   eventbase_list: Eventbase[];
+  milestone_list: Milestone[];
 }
 
 interface RangeInterval {
@@ -151,28 +170,57 @@ export const settings = {
   }
 }
 
-export function put_all(db: IDBDatabase, data: Data) {
-  const transaction = db.transaction([dbStoreName], "readwrite");
+// storage
+
+export function db_put_all(db: IDBDatabase, data: Data) {
+  // todo: ask to update if exist;
+  const transaction = db.transaction([dbEventbaseStoreName, dbMilestoneStoreName], "readwrite");
   transaction.onerror = function (event: Event) {
     console.error("Unable to clear store and put all data", this.error);
   };
-  const objectStore = transaction.objectStore(dbStoreName);
-  objectStore.clear()
-    .onsuccess = function () {
-      data.eventbase_list.forEach(eventbase => objectStore.add(eventbase));
-    };
+  const eventbaseStore = transaction.objectStore(dbEventbaseStoreName);
+  data.eventbase_list.forEach(eventbase => {
+    if (!eventbaseStore.getKey(eventbase.uid)) {
+      eventbaseStore.add(eventbase);
+    }
+  });
+  const milestoneStore = transaction.objectStore(dbEventbaseStoreName);
+  data.milestone_list.forEach(milestone => {
+    const uid = get_uid(milestone);
+    if (!milestoneStore.getKey(uid)) {
+      milestoneStore.add(milestone, uid)
+    }
+  });
 }
 
-export function change(db: IDBDatabase, old_eventbase: Eventbase, new_eventbase: Eventbase | null) {
-  const transaction = db.transaction([dbStoreName], "readwrite");
+export function db_delete_and_put_eventbase(db: IDBDatabase, old_eventbase: Eventbase, new_eventbase: Eventbase | null) {
+  const transaction = db.transaction([dbEventbaseStoreName], "readwrite");
   transaction.onerror = function (event: Event) {
     console.error("Unable to delete old data or put new data", this.error);
   };
-  const objectStore = transaction.objectStore(dbStoreName);
+  transaction.oncomplete = function (event: Event) {
+  };
+  const objectStore = transaction.objectStore(dbEventbaseStoreName);
   objectStore.delete(old_eventbase.uid)
     .onsuccess = function () {
       if (!new_eventbase) return;
 
       objectStore.put(new_eventbase);
+    }
+}
+
+export function db_delete_and_put_milestone(db: IDBDatabase, old_milestone: Milestone, new_milestone: Milestone | null) {
+  const transaction = db.transaction([dbMilestoneStoreName], "readwrite");
+  transaction.onerror = function (event: Event) {
+    console.error("Unable to delete old data or put new data", this.error);
+  };
+  transaction.oncomplete = function (event: Event) {
+  };
+  const objectStore = transaction.objectStore(dbMilestoneStoreName);
+  objectStore.delete(get_uid(old_milestone))
+    .onsuccess = function () {
+      if (!new_milestone) return;
+
+      objectStore.put(new_milestone, get_uid(new_milestone));
     }
 }

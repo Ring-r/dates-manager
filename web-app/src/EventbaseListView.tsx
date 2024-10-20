@@ -10,8 +10,6 @@ interface EventbaseParam {
 export function EventbaseView({ eventbase, on_edit }: EventbaseParam) {
   return (
     <HStack>
-      {/* <DateInput plaintext value={eventbase.date} /> */}
-      {/* <Input plaintext value={eventbase.date_year || "????"} /> */}
       <Input plaintext value={("0" + eventbase.date_month).slice(-2) + "." + ("0" + eventbase.date_day).slice(-2)} />
       <Input plaintext value={eventbase.title} />
       {eventbase.actor && <Input plaintext value={eventbase.actor} />}

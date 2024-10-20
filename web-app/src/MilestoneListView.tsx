@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Button, DateInput, DatePicker, Divider, FlexboxGrid, HStack, Input, Message, Panel, Text, useToaster, VStack } from 'rsuite';
+import { Badge, Button, DatePicker, Divider, FlexboxGrid, HStack, Input, Message, Panel, Text, useToaster, VStack } from 'rsuite';
 import { get_uid, Milestone, MilestoneStateBase, MilestoneStateDone, MilestoneStateIgnore, MilestoneStateRemind } from './data';
 import { EventbaseView } from './EventbaseListView';
 
@@ -20,9 +20,8 @@ export function MilestoneView({ milestone, on_edit }: MilestoneParam) {
 
   return (
     <HStack>
-      <DateInput plaintext value={milestone.date} format='yyyy.MM.dd' />
-      <Input plaintext value={milestone.eventbase.title} />
-      {milestone.eventbase.actor && <Input plaintext value={milestone.eventbase.actor} />}
+      <Input plaintext value={milestone.date_year + "."} />
+      <EventbaseView eventbase={milestone.eventbase} />
       {stateType !== "base" && <Badge color={state_type_to_color(stateType)} content={stateType} />}
       {on_edit && <Button onClick={on_edit}>edit</Button>}
     </HStack>
@@ -120,7 +119,7 @@ export function MilestoneEditView({ milestone, on_apply, on_cancel, on_delete }:
       <Panel>
         <FlexboxGrid justify="center">
           <HStack>
-            <Input plaintext value={milestone.date.getFullYear() + "."} />
+            <Input plaintext value={milestone.date_year + "."} />
             <EventbaseView eventbase={milestone.eventbase} />
           </HStack>
         </FlexboxGrid>

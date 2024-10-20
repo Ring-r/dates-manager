@@ -9,7 +9,6 @@ export const data_filename = "dates.json";
 export interface Eventbase {
   uid: number; // auto
 
-  // date: Date;
   date_year?: number;
   date_month: number;
   date_day: number;
@@ -31,7 +30,7 @@ export function compare_eventbase(a: Eventbase, b: Eventbase): number {
 export function create_eventbase(uid: number, date_year: number | undefined, date_month: number, date_day: number, title: string, actor?: string) {
   return {
     uid: uid,
-    // date: date,
+
     date_year: date_year,
     date_month: date_month,
     date_day: date_day,
@@ -64,28 +63,35 @@ export interface MilestoneStateRemind {
 
 export type MilestoneState = MilestoneStateBase | MilestoneStateDone | MilestoneStateIgnore | MilestoneStateRemind;
 
-export interface Milestone {
-  date: Date; // period_id
-  eventbase: Eventbase;
 
-  // action_list?: MilestoneAction[];
+export interface Milestone {
+  date_year: number;
+  eventbase: Eventbase;
 
   state: MilestoneState; // "no information" ("base", "virtual", "not stored yet"); remind_next_datetime; "remind" ("in_process"); "ignore", "done"
   story?: string;
 }
 
 export function compare_milestone(a: Milestone, b: Milestone): number {
-  if (a.date.getDay() !== b.date.getDay()) return a.date.getDay() - b.date.getDay();
+  if (a.date_year !== b.date_year) return a.date_year - b.date_year;
 
   return compare_eventbase(a.eventbase, b.eventbase);
 };
 
-export function create_milestone(date: Date, eventbase: Eventbase): Milestone {
+export function create_milestone(date_year: number, eventbase: Eventbase): Milestone {
   return {
-    date: get_milestone_date(eventbase, date),
+    date_year: date_year,
     eventbase: eventbase,
     state: { type: "base" },
   };
+}
+
+export function create_milestone_next(date: Date, eventbase: Eventbase): Milestone {
+  const milestone = create_milestone(date.getFullYear(), eventbase);
+  if (get_reminder_stop_datetime(milestone) <= date) {
+    milestone.date_year += 1;
+  }
+  return milestone;
 }
 
 export function with_added_reminder(milestone: Milestone) {
@@ -101,18 +107,23 @@ export function with_added_reminder(milestone: Milestone) {
   return milestone;
 }
 
+export function get_date(milestone: Milestone) {
+  // todo: what to do with leap year and 29.02?
+  return new Date(milestone.date_year, milestone.eventbase.date_month - 1, milestone.eventbase.date_day);
+}
+
 export function get_reminder_start_datetime(milestone: Milestone) {
   const reminder_interval = settings.intervals.reminder; // todo: `milestone.eventbase.settings?.intervals?.reminder || settings.intervals.reminder`
-  return new Date(milestone.date.getTime() - reminder_interval.to_start);
+  return new Date(get_date(milestone).getTime() - reminder_interval.to_start);
 }
 
 export function get_reminder_stop_datetime(milestone: Milestone) {
   const reminder_interval = settings.intervals.reminder; // todo: `milestone.eventbase.settings?.intervals?.reminder || settings.intervals.reminder`
-  return new Date(milestone.date.getTime() + reminder_interval.to_stop);
+  return new Date(get_date(milestone).getTime() + reminder_interval.to_stop);
 }
 
 export function get_uid(milestone: Milestone) {
-  return [milestone.date.getTime(), milestone.eventbase.uid].join(" ");
+  return [milestone.date_year, milestone.eventbase.uid].join(" ");
 }
 
 export function in_process(milestone: Milestone) {
@@ -129,6 +140,7 @@ export interface Data {
   eventbase_list: Eventbase[];
   milestone_list: Milestone[];
 }
+
 
 interface RangeInterval {
   to_start: number;
@@ -149,7 +161,7 @@ export function eventbase_range_contains(eventbase: Eventbase, range_interval: R
 }
 
 export function milestone_range_contains(milestone: Milestone, range_interval: RangeInterval, date: Date) {
-  return _range_contains(milestone.date, range_interval, date);
+  return _range_contains(get_date(milestone), range_interval, date);
 }
 
 

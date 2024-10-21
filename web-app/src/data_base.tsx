@@ -1,9 +1,4 @@
-export const dbName = "dates-manager";
-export const dbEventbaseStoreName = "eventbase_data";
-export const dbMilestoneStoreName = "milestone_data";
 export const dbVersion = 1;
-
-export const data_filename = "dates.json";
 
 
 export interface Eventbase {
@@ -57,7 +52,7 @@ export interface MilestoneStateIgnore {
 }
 
 export interface MilestoneStateRemind {
-  next_reminder_datetime: Date;
+  next_reminder_datetime_posix: number;
   type: "remind";
 }
 
@@ -95,11 +90,11 @@ export function create_milestone_next(date: Date, eventbase: Eventbase): Milesto
 }
 
 export function with_added_reminder(milestone: Milestone) {
-  const datetime_start = get_reminder_start_datetime(milestone);
-  const datetime_next = datetime_start;
+  const datetime_start_posix = get_reminder_start_datetime(milestone).getTime();
+  const datetime_next_posix = datetime_start_posix;
 
   milestone.state = {
-    next_reminder_datetime: datetime_next,
+    next_reminder_datetime_posix: datetime_next_posix,
     type: "remind",
   };
 
@@ -180,59 +175,4 @@ export const settings = {
       to_stop: 8 * 24 * 60 * 60 * 1000, // 7 days after
     },
   }
-}
-
-// storage
-
-export function db_put_all(db: IDBDatabase, data: Data) {
-  // todo: ask to update if exist;
-  const transaction = db.transaction([dbEventbaseStoreName, dbMilestoneStoreName], "readwrite");
-  transaction.onerror = function (event: Event) {
-    console.error("Unable to clear store and put all data", this.error);
-  };
-  const eventbaseStore = transaction.objectStore(dbEventbaseStoreName);
-  data.eventbase_list.forEach(eventbase => {
-    if (!eventbaseStore.getKey(eventbase.uid)) {
-      eventbaseStore.add(eventbase);
-    }
-  });
-  const milestoneStore = transaction.objectStore(dbEventbaseStoreName);
-  data.milestone_list.forEach(milestone => {
-    const uid = get_uid(milestone);
-    if (!milestoneStore.getKey(uid)) {
-      milestoneStore.add(milestone, uid)
-    }
-  });
-}
-
-export function db_delete_and_put_eventbase(db: IDBDatabase, old_eventbase: Eventbase, new_eventbase: Eventbase | null) {
-  const transaction = db.transaction([dbEventbaseStoreName], "readwrite");
-  transaction.onerror = function (event: Event) {
-    console.error("Unable to delete old data or put new data", this.error);
-  };
-  transaction.oncomplete = function (event: Event) {
-  };
-  const objectStore = transaction.objectStore(dbEventbaseStoreName);
-  objectStore.delete(old_eventbase.uid)
-    .onsuccess = function () {
-      if (!new_eventbase) return;
-
-      objectStore.put(new_eventbase);
-    }
-}
-
-export function db_delete_and_put_milestone(db: IDBDatabase, old_milestone: Milestone, new_milestone: Milestone | null) {
-  const transaction = db.transaction([dbMilestoneStoreName], "readwrite");
-  transaction.onerror = function (event: Event) {
-    console.error("Unable to delete old data or put new data", this.error);
-  };
-  transaction.oncomplete = function (event: Event) {
-  };
-  const objectStore = transaction.objectStore(dbMilestoneStoreName);
-  objectStore.delete(get_uid(old_milestone))
-    .onsuccess = function () {
-      if (!new_milestone) return;
-
-      objectStore.put(new_milestone, get_uid(new_milestone));
-    }
 }

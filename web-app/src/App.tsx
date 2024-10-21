@@ -5,95 +5,95 @@ import 'rsuite/dist/rsuite.min.css';
 import { FileType } from 'rsuite/esm/Uploader';
 import './App.css';
 import CalendarView from './Calendar';
-import { compare_eventbase, compare_milestone, create_eventbase, create_milestone_next, Data, data_filename, db_delete_and_put_eventbase, db_delete_and_put_milestone, db_put_all, dbEventbaseStoreName, dbMilestoneStoreName, dbName, dbVersion, Eventbase, get_reminder_stop_datetime, get_uid, in_process, is_base, Milestone, MilestoneStateRemind, with_added_reminder } from './data';
+import { compare_eventbase, compare_milestone, create_eventbase, create_milestone_next, Data, dbVersion, Eventbase, get_reminder_stop_datetime, get_uid, in_process, is_base, Milestone, MilestoneStateRemind, with_added_reminder } from './data_base';
+import { file_load, file_save } from './data_file';
+import { firestore_delete_eventbase, firestore_delete_milestone, firestore_put_eventbase, firestore_put_milestone } from './data_firestore';
+import { indexeddb_delete_eventbase, indexeddb_delete_milestone, indexeddb_init, indexeddb_load, indexeddb_put_eventbase, indexeddb_put_milestone, indexeddb_save } from './data_indexeddb';
 import EventbaseListView, { EventbaseEditView } from './EventbaseListView';
 import MilestoneListView, { MilestoneEditView } from './MilestoneListView';
 import MilestoneListViewComplex from './MilestoneListViewComplex';
 
 
 function App() {
-  const [db, setDB] = useState<IDBDatabase>();
+  const [indexeddb, setIndexeddb] = useState<IDBDatabase>();
 
   const [date, setDate] = useState<Date>(new Date());
   const [eventbaseList, setEventbaseList] = useState<Eventbase[]>([]);
   const [milestoneList, setMilestoneList] = useState<Milestone[]>([]);
+
+  function state_delete_eventbase(eventbase: Eventbase) {
+    setEventbaseList(
+      eventbaseList
+        .filter(item => item.uid !== eventbase.uid),
+    );
+    setMilestoneList(
+      milestoneList
+        .filter(item => item.eventbase.uid !== eventbase.uid),
+    );
+  }
+
+  function state_put_eventbase(eventbase: Eventbase) {
+    setEventbaseList(
+      [
+        ...eventbaseList
+          .filter(item => item.uid !== eventbase.uid),
+        eventbase,
+      ].sort(compare_eventbase)
+    );
+  }
+
+  function state_delete_milestone(milestone: Milestone) {
+    setMilestoneList(
+      milestoneList
+        .filter(item => get_uid(item) !== get_uid(milestone)),
+    );
+  }
+
+  function state_put_milestone(milestone: Milestone) {
+    setMilestoneList(
+      [
+        ...milestoneList
+          .filter(item => get_uid(item) !== get_uid(milestone)),
+        milestone,
+      ].sort(compare_milestone)
+    );
+  }
 
   const [activeKey, setActiveKey] = useState<string | number | undefined>("1");
 
   // indexeddb
 
   useEffect(() => {
-    function initDB() {
-      const request = indexedDB.open(dbName, dbVersion);
-      request.onerror = (event: Event) => {
-        const error = (event.target as IDBOpenDBRequest).error;
-        console.error("Database error:", error);
-      };
-      request.onsuccess = (event: Event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        setDB(db);
-      };
-      request.onupgradeneeded = function (event: IDBVersionChangeEvent) {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(dbEventbaseStoreName)) {
-          db.createObjectStore(dbEventbaseStoreName, { keyPath: "uid" });
-        }
-        if (!db.objectStoreNames.contains(dbMilestoneStoreName)) {
-          db.createObjectStore(dbMilestoneStoreName);
-        }
-      }
-    }
-    initDB();
+    // inner db (idb); outer db (odb)
+    // if idb doesn't exist then odb -> idb;
+    // if idb exist then idb -> odb;
+    // actions: idb->odb; odb->idb;
+    // data for states get from idb; idb -> state
+    // data from states send to odb and idb
+    indexeddb_init()
+      .then(db => setIndexeddb(db));
   }, []);
 
   useEffect(() => {
-    function initData() {
-      if (!db) return;
+    async function initData() {
+      if (!indexeddb) return;
 
-      const request_eventbase = db.transaction([dbEventbaseStoreName], "readonly").objectStore(dbEventbaseStoreName).getAll();
-      request_eventbase.onerror = (event: Event) => {
-        const error = (event.target as IDBOpenDBRequest).error;
-        console.error("Unable to retrieve data:", error);
-      };
-      request_eventbase.onsuccess = (event: Event) => {
-        const data = (event.target as IDBRequest<Eventbase[]>).result;
-        setEventbaseList(data);
-      };
-      const request_milestone = db.transaction([dbMilestoneStoreName], "readonly").objectStore(dbMilestoneStoreName).getAll();
-      request_milestone.onerror = (event: Event) => {
-        const error = (event.target as IDBOpenDBRequest).error;
-        console.error("Unable to retrieve data:", error);
-      };
-      request_milestone.onsuccess = (event: Event) => {
-        const data = (event.target as IDBRequest<Milestone[]>).result;
-        setMilestoneList(data);
-      };
+      const data = await indexeddb_load(indexeddb);
+      setEventbaseList(data.eventbase_list);
+      setMilestoneList(data.milestone_list);
     }
     initData();
-  }, [db]);
+  }, [indexeddb]);
 
-  // load/save
+  // file
 
-  const load = (fileList: FileType[]) => {
-    if (!db) return;
+  const load = async (fileList: FileType[]) => {
+    const data = await file_load(fileList[0]);
+    setEventbaseList(data.eventbase_list);
+    setMilestoneList(data.milestone_list);
 
-    const blob = fileList[0].blobFile;
-    if (!blob) return;
-
-    const reader = new FileReader();
-    reader.onload = (event: ProgressEvent<FileReader>) => {
-      try {
-        const result = event.target?.result as string;
-        const data = JSON.parse(result, (k, v) => k === "date" ? new Date(v) : v) as Data;
-
-        db_put_all(db, data);
-        setEventbaseList(data.eventbase_list);
-        setMilestoneList(data.milestone_list);
-      } catch (error) {
-        console.error("Error parsing JSON:", error);
-      }
-    };
-    reader.readAsText(blob);
+    // clear; add; put; update
+    indexeddb && indexeddb_save(indexeddb, data);
   }
 
   const save = () => {
@@ -102,17 +102,7 @@ function App() {
       eventbase_list: eventbaseList,
       milestone_list: milestoneList,
     }
-    const json = JSON.stringify(data);
-    const blob = new Blob([json], { type: "text/json" });
-
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = data_filename;
-
-    // Append the anchor to the body (it must be in the DOM for the click to work in some browsers)
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    file_save(data);
   }
 
   // editingEventbase
@@ -134,17 +124,12 @@ function App() {
   }
 
   const handleApplyEventbase = (eventbase: Eventbase) => {
-    if (!db) return;
-    if (editingEventbase === null) return;
+    if (!indexeddb) return;
 
-    db_delete_and_put_eventbase(db, editingEventbase, eventbase)
-    setEventbaseList(
-      [
-        ...eventbaseList
-          .filter(eventbase => eventbase.uid !== editingEventbase.uid),
-        eventbase,
-      ].sort(compare_eventbase)
-    );
+    firestore_put_eventbase(eventbase);
+    indexeddb_put_eventbase(indexeddb, eventbase);
+    state_put_eventbase(eventbase);
+
     setEditingEventbase(null);
   }
 
@@ -153,14 +138,13 @@ function App() {
   }
 
   const handleDeleteEventbase = () => {
-    if (!db) return;
+    if (!indexeddb) return;
     if (editingEventbase === null) return;
 
-    db_delete_and_put_eventbase(db, editingEventbase, null);
-    setEventbaseList(
-      eventbaseList
-        .filter(eventbase => eventbase.uid !== editingEventbase.uid)
-    );
+    firestore_delete_eventbase(editingEventbase);
+    indexeddb_delete_eventbase(indexeddb, editingEventbase);
+    state_delete_eventbase(editingEventbase);
+
     setEditingEventbase(null);
   }
 
@@ -173,17 +157,12 @@ function App() {
   }
 
   const handleApplyMilestone = (milestone: Milestone) => {
-    if (!db) return;
-    if (editingMilestone === null) return;
+    if (!indexeddb) return;
 
-    db_delete_and_put_milestone(db, editingMilestone, milestone);
-    setMilestoneList(
-      [
-        ...milestoneList
-          .filter(milestone => get_uid(milestone) !== get_uid(editingMilestone)),
-        milestone,
-      ].sort(compare_milestone)
-    );
+    firestore_put_milestone(milestone);
+    indexeddb_put_milestone(indexeddb, milestone);
+    state_put_milestone(milestone);
+
     setEditingMilestone(null);
   }
 
@@ -192,14 +171,13 @@ function App() {
   }
 
   const handleDeleteMilestone = () => {
-    if (!db) return;
+    if (!indexeddb) return;
     if (editingMilestone === null) return;
 
-    db_delete_and_put_milestone(db, editingMilestone, null);
-    setMilestoneList(
-      milestoneList
-        .filter(milestone => get_uid(milestone) !== get_uid(editingMilestone))
-    );
+    firestore_delete_milestone(editingMilestone);
+    indexeddb_delete_milestone(indexeddb, editingMilestone);
+    state_delete_milestone(editingMilestone);
+
     setEditingMilestone(null);
   }
 
@@ -233,9 +211,9 @@ function App() {
       })
       .map(milestone => is_base(milestone) ? with_added_reminder(milestone) : milestone)
       .sort((a, b) => {
-        const a_date = (a.state as MilestoneStateRemind).next_reminder_datetime;
-        const b_date = (b.state as MilestoneStateRemind).next_reminder_datetime;
-        return a_date.getTime() - b_date.getTime();
+        const a_date = (a.state as MilestoneStateRemind).next_reminder_datetime_posix;
+        const b_date = (b.state as MilestoneStateRemind).next_reminder_datetime_posix;
+        return a_date - b_date;
       });
   }
 
@@ -255,15 +233,15 @@ function App() {
       return;
     }
 
-    const remind_next_datetime = (reminder_milestone.state as MilestoneStateRemind).next_reminder_datetime;
-    if (remind_next_datetime.getTime() <= now.getTime()) {
+    const remind_next_datetime_posix = (reminder_milestone.state as MilestoneStateRemind).next_reminder_datetime_posix;
+    if (remind_next_datetime_posix <= now.getTime()) {
       setEditingMilestone(reminder_milestone);
     }
     else {
-      const targetDate: Date = remind_next_datetime;
+      const target_datetime_posix = remind_next_datetime_posix;
 
       const now = new Date();
-      const timeDifference = targetDate.getTime() - now.getTime();
+      const timeDifference = target_datetime_posix - now.getTime();
       const maxTimeout = 2147483647; // Max value for setTimeout (approx. 24.8 days)
       const timeout_id = setTimeout(recalc_milestone_with_reminder_list, Math.min(timeDifference, maxTimeout));
       setReminderTimeoutId(timeout_id);

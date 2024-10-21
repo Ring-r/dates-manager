@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import 'rsuite/dist/rsuite.min.css';
 import MilestoneListView from './MilestoneListView';
-import { compare_milestone, create_milestone, Eventbase, eventbase_range_contains, get_uid, in_process, Milestone, milestone_range_contains, settings } from './data';
+import { compare_milestone, create_milestone, Eventbase, eventbase_range_contains, get_uid, in_process, Milestone, milestone_range_contains, settings } from './data_base';
 
 function get_day_milestone_list(eventbase_list: Eventbase[], milestone_list: Milestone[], date: Date) {
   const day_interval = settings.intervals.day; // todo: or use data from event settings

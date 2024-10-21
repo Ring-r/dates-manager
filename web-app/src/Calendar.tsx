@@ -1,6 +1,6 @@
 import { Badge, Calendar } from 'rsuite';
 import 'rsuite/dist/rsuite.min.css';
-import { Eventbase, eventbase_range_contains, settings } from './data';
+import { Eventbase, eventbase_range_contains, settings } from './data_base';
 
 interface CalendarParam {
   date: Date;

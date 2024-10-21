@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Badge, Button, DatePicker, Divider, FlexboxGrid, HStack, Input, Message, Panel, Text, useToaster, VStack } from 'rsuite';
-import { get_uid, Milestone, MilestoneStateBase, MilestoneStateDone, MilestoneStateIgnore, MilestoneStateRemind } from './data';
+import { get_uid, Milestone, MilestoneStateBase, MilestoneStateDone, MilestoneStateIgnore, MilestoneStateRemind } from './data_base';
 import { EventbaseView } from './EventbaseListView';
 
 function state_type_to_color(state_type: string) {
@@ -37,8 +37,8 @@ interface MilestoneEditParam {
 
 export function MilestoneEditView({ milestone, on_apply, on_cancel, on_delete }: MilestoneEditParam) {
   const default_reminder_duration = 2 * 60 * 60 * 1000;
-  const next_reminder_datetime = milestone.state.type === "remind" ? milestone.state.next_reminder_datetime.getTime() : (new Date()).getTime() + default_reminder_duration;
-  const next_reminder_duration = milestone.state.type === "remind" ? milestone.state.next_reminder_datetime.getTime() - (new Date()).getTime() : default_reminder_duration;
+  const next_reminder_datetime = milestone.state.type === "remind" ? milestone.state.next_reminder_datetime_posix : (new Date()).getTime() + default_reminder_duration;
+  const next_reminder_duration = milestone.state.type === "remind" ? milestone.state.next_reminder_datetime_posix - (new Date()).getTime() : default_reminder_duration;
 
   const [nextReminderDatetime, setNextReminderDatetime] = useState<number>(next_reminder_datetime);
   const [nextReminderDuration, setNextReminderDuration] = useState<number>(next_reminder_duration);
@@ -87,7 +87,7 @@ export function MilestoneEditView({ milestone, on_apply, on_cancel, on_delete }:
     const state = stateType === "base" ? { type: "base" } as MilestoneStateBase :
       stateType === "done" ? { type: "done" } as MilestoneStateDone :
         stateType === "ignore" ? { type: "ignore" } as MilestoneStateIgnore :
-          { next_reminder_datetime: new Date(nextReminderDatetime), type: "remind" } as MilestoneStateRemind;
+          { next_reminder_datetime_posix: nextReminderDatetime, type: "remind" } as MilestoneStateRemind;
 
     on_apply(
       {
@@ -99,7 +99,7 @@ export function MilestoneEditView({ milestone, on_apply, on_cancel, on_delete }:
   }
 
   const handleCancelClick = () => {
-    if (milestone.state.type === "remind" && milestone.state.next_reminder_datetime.getTime() < (new Date()).getTime()) { // or base and in interval
+    if (milestone.state.type === "remind" && milestone.state.next_reminder_datetime_posix < (new Date()).getTime()) { // or base and in interval
       toaster.push((
         <Message showIcon type="error" closable>next reminder datetime must be more then now.</Message>
       ), { duration: 5000 });

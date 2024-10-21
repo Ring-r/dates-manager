@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Button, HStack, Input, InputNumber, Message, Panel, SelectPicker, useToaster, VStack } from 'rsuite';
-import { create_eventbase, Eventbase } from './data';
+import { Button, Divider, FlexboxGrid, HStack, Input, InputNumber, Message, Panel, SelectPicker, useToaster, VStack } from 'rsuite';
+import { create_eventbase, Eventbase } from './data_base';
 
 interface EventbaseParam {
   eventbase: Eventbase;
@@ -90,6 +90,13 @@ export function EventbaseEditView({ eventbase, on_apply, on_cancel, on_delete }:
 
   return (
     <Panel>
+      <FlexboxGrid justify="space-between">
+        <Button onClick={handleApplyClick}>apply</Button>
+        <Button onClick={on_cancel}>cancel</Button>
+        <Button onClick={on_delete}>delete</Button>
+      </FlexboxGrid>
+      <Divider />
+
       <VStack>
         <HStack>
           <InputNumber placeholder="year" value={dateYear} onChange={setDateYear} />
@@ -104,11 +111,6 @@ export function EventbaseEditView({ eventbase, on_apply, on_cancel, on_delete }:
         </HStack>
         <Input placeholder="title" value={title} onChange={setTitle} />
         <Input placeholder="actor" value={actor} onChange={setActor} />
-        <HStack>
-          <Button onClick={handleApplyClick}>apply</Button>
-          <Button onClick={on_cancel}>cancel</Button>
-          <Button onClick={on_delete}>delete</Button>
-        </HStack>
       </VStack>
     </Panel>
   );

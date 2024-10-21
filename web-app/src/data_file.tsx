@@ -89,7 +89,7 @@ export function file_load(file_type: FileType): Promise<Data> {
 export function file_save(data: Data): void {
   const nosql_data = convert_data_to_nosql(data);
 
-  const json = JSON.stringify(nosql_data);
+  const json = JSON.stringify(nosql_data, null, "\t");
   const blob = new Blob([json], { type: "text/json" });
 
   const a = document.createElement('a');

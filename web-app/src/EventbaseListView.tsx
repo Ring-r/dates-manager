@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Divider, FlexboxGrid, HStack, Input, InputNumber, Message, Panel, SelectPicker, useToaster, VStack } from 'rsuite';
+import { Button, Divider, FlexboxGrid, HStack, Input, InputNumber, InputPicker, Message, Panel, SelectPicker, useToaster, VStack } from 'rsuite';
 import { create_eventbase, Eventbase } from './data_base';
 
 interface EventbaseParam {
@@ -23,9 +23,12 @@ interface EventbaseEditParam {
   on_apply: (eventbase: Eventbase) => void;
   on_cancel: () => void;
   on_delete: () => void;
+
+  eventbase_title_list?: string[];
+  eventbase_actor_list?: string[];
 }
 
-export function EventbaseEditView({ eventbase, on_apply, on_cancel, on_delete }: EventbaseEditParam) {
+export function EventbaseEditView({ eventbase, on_apply, on_cancel, on_delete, eventbase_title_list, eventbase_actor_list }: EventbaseEditParam) {
   const [dateYear, setDateYear] = useState<string | number | null>(eventbase.date_year || null);
   const [dateMonth, setDateMonth] = useState<number | null>(eventbase.date_month);
   const [dateDay, setDateDay] = useState<number | null>(eventbase.date_day);
@@ -88,6 +91,9 @@ export function EventbaseEditView({ eventbase, on_apply, on_cancel, on_delete }:
     );
   }
 
+  const data_eventbase_title_list = (eventbase_title_list || []).map(item => ({ label: item, value: item }));
+  const data_eventbase_actor_list = (eventbase_actor_list || []).map(item => ({ label: item, value: item }));
+
   return (
     <Panel>
       <FlexboxGrid justify="space-between">
@@ -109,8 +115,10 @@ export function EventbaseEditView({ eventbase, on_apply, on_cancel, on_delete }:
           <SelectPicker cleanable={false} data={data_day} placeholder="day" value={dateDay} onChange={setDateDay} />
           <Button onClick={handleTodayClick}>today</Button>
         </HStack>
-        <Input placeholder="title" value={title} onChange={setTitle} />
-        <Input placeholder="actor" value={actor} onChange={setActor} />
+        <HStack>
+          <InputPicker creatable data={data_eventbase_title_list} placeholder="title" value={title} onChange={setTitle} />
+        </HStack>
+        <InputPicker creatable data={data_eventbase_actor_list} placeholder="actor" value={actor} onChange={setActor} />
       </VStack>
     </Panel>
   );

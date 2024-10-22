@@ -109,6 +109,14 @@ function App() {
 
   const [editingEventbase, setEditingEventbase] = useState<Eventbase | null>(null);
 
+  const [eventbaseTitleList, setEventbaseTitleList] = useState<string[]>([]);
+  const [eventbaseActorList, setEventbaseActorList] = useState<string[]>([]);
+
+  useEffect(() => {
+    setEventbaseTitleList(Array.from((new Set(eventbaseList.map(eventbase => eventbase.title))).values()));
+    setEventbaseActorList(Array.from((new Set(eventbaseList.filter(eventbase => eventbase.actor !== undefined).map(eventbase => eventbase.actor as string))).values()));
+  }, [eventbaseList]);
+
   const handleAddEventbase = () => {
     setEditingEventbase(
       create_eventbase(
@@ -251,7 +259,7 @@ function App() {
   return (
     <div className="App" >
       {
-        editingEventbase ? <EventbaseEditView eventbase={editingEventbase} on_apply={handleApplyEventbase} on_cancel={handleCancelEventbase} on_delete={handleDeleteEventbase} /> :
+        editingEventbase ? <EventbaseEditView eventbase={editingEventbase} on_apply={handleApplyEventbase} on_cancel={handleCancelEventbase} on_delete={handleDeleteEventbase} eventbase_title_list={eventbaseTitleList} eventbase_actor_list={eventbaseActorList} /> :
           editingMilestone ? <MilestoneEditView milestone={editingMilestone} on_apply={handleApplyMilestone} on_cancel={handleCancelMilestone} on_delete={handleDeleteMilestone} /> :
             <>
               <Tabs activeKey={activeKey} onSelect={setActiveKey}>

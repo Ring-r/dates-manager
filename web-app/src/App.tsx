@@ -59,7 +59,7 @@ function App() {
     );
   }
 
-  const [activeKey, setActiveKey] = useState<string | number | undefined>("1");
+  const [activeKey, setActiveKey] = useState<string | number | undefined>("calendar");
 
   // indexeddb
 
@@ -277,7 +277,7 @@ function App() {
     const isLeftSwipe = distance > minSwipeDistance
     const isRightSwipe = distance < -minSwipeDistance
     if (isLeftSwipe || isRightSwipe) {
-      if (activeKey === 1) {
+      if (activeKey === "calendar") {
         const month_inc = isLeftSwipe ? -1 : +1;
         setDate(new Date(date.getFullYear(), date.getMonth() + month_inc, date.getDate()));
       }
@@ -291,16 +291,16 @@ function App() {
           editingMilestone ? <MilestoneEditView milestone={editingMilestone} on_apply={handleApplyMilestone} on_cancel={handleCancelMilestone} on_delete={handleDeleteMilestone} /> :
             <>
               <Tabs activeKey={activeKey} onSelect={setActiveKey}>
-                <Tabs.Tab eventKey="1" title="calendar">
+                <Tabs.Tab eventKey="calendar" title="calendar">
                   <CalendarView date={date} eventbase_list={eventbaseList} set_date={setDate} />
                   <Button onClick={handleAddEventbase}>add event</Button>
                   <MilestoneListViewComplex date={date} eventbase_list={eventbaseList} milestone_list={milestoneList} on_edit={handleEditMilestone} />
                 </Tabs.Tab>
-                <Tabs.Tab eventKey="2" title="events">
+                <Tabs.Tab eventKey="events" title="events">
                   <Button onClick={handleAddEventbase}>add event</Button>
                   <EventbaseListView eventbaseList={eventbaseList} on_edit={handleEditEventbase} />
                 </Tabs.Tab>
-                <Tabs.Tab eventKey="3" title="settings">
+                <Tabs.Tab eventKey="settings" title="settings">
                   <Panel>
                     <FlexboxGrid justify="space-between">
                       <Button onClick={save}>Save data to local file</Button>
@@ -310,7 +310,7 @@ function App() {
                     </FlexboxGrid>
                   </Panel>
                 </Tabs.Tab>
-                <Tabs.Tab eventKey="4" title="debug">
+                <Tabs.Tab eventKey="debug" title="debug">
                   <MilestoneListView milestone_list={reminderMilestoneList} />
                 </Tabs.Tab>
               </Tabs>

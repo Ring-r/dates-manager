@@ -278,7 +278,7 @@ function App() {
     const isRightSwipe = distance < -minSwipeDistance
     if (isLeftSwipe || isRightSwipe) {
       if (activeKey === "calendar") {
-        const month_inc = isLeftSwipe ? -1 : +1;
+        const month_inc = isLeftSwipe ? +1 : -1;
         setDate(new Date(date.getFullYear(), date.getMonth() + month_inc, date.getDate()));
       }
     }

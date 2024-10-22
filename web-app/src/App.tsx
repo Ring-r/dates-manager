@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { TouchEvent, useEffect, useState } from 'react';
 import { Button, FlexboxGrid, Panel, Tabs, Uploader } from 'rsuite';
 import 'rsuite-color-picker/lib/styles.less';
 import 'rsuite/dist/rsuite.min.css';
@@ -256,8 +256,36 @@ function App() {
     }
   }
 
+  // swipe
+
+  const [touchStart, setTouchStart] = useState<number | null>(null)
+  const [touchEnd, setTouchEnd] = useState<number | null>(null)
+
+  // the required distance between touchStart and touchEnd to be detected as a swipe
+  const minSwipeDistance = 50
+
+  const onTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    setTouchEnd(null) // otherwise the swipe is fired even with usual touch events
+    setTouchStart(e.targetTouches[0].clientX)
+  }
+
+  const onTouchMove = (e: TouchEvent<HTMLDivElement>) => setTouchEnd(e.targetTouches[0].clientX)
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return
+    const distance = touchStart - touchEnd
+    const isLeftSwipe = distance > minSwipeDistance
+    const isRightSwipe = distance < -minSwipeDistance
+    if (isLeftSwipe || isRightSwipe) {
+      if (activeKey === 1) {
+        const month_inc = isLeftSwipe ? -1 : +1;
+        setDate(new Date(date.getFullYear(), date.getMonth() + month_inc, date.getDate()));
+      }
+    }
+  }
+
   return (
-    <div className="App" >
+    <div className="App" onTouchEnd={onTouchEnd} onTouchMove={onTouchMove} onTouchStart={onTouchStart} >
       {
         editingEventbase ? <EventbaseEditView eventbase={editingEventbase} on_apply={handleApplyEventbase} on_cancel={handleCancelEventbase} on_delete={handleDeleteEventbase} eventbase_title_list={eventbaseTitleList} eventbase_actor_list={eventbaseActorList} /> :
           editingMilestone ? <MilestoneEditView milestone={editingMilestone} on_apply={handleApplyMilestone} on_cancel={handleCancelMilestone} on_delete={handleDeleteMilestone} /> :

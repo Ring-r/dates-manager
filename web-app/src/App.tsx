@@ -13,6 +13,7 @@ import EventbaseListView, { EventbaseEditView } from './EventbaseListView';
 import MilestoneListView, { MilestoneEditView } from './MilestoneListView';
 import MilestoneListViewComplex from './MilestoneListViewComplex';
 
+const buildTime = process.env.REACT_APP_BUILD_TIME;
 
 function App() {
   const [indexeddb, setIndexeddb] = useState<IDBDatabase>();
@@ -302,6 +303,7 @@ function App() {
                 </Tabs.Tab>
                 <Tabs.Tab eventKey="settings" title="settings">
                   <Panel>
+                  <div>Build time: {buildTime}</div>
                     <FlexboxGrid justify="space-between">
                       <Button onClick={save}>Save data to local file</Button>
                       <Uploader accept=".json" action="" fileListVisible={false} onChange={load} removable={false}>
